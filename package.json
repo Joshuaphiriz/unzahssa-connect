@@ -3,6 +3,10 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
+  "engines": {
+    "pnpm": "11.x",
+    "node": "20.x"
+  },
   "scripts": {
     "build": "vite build",
     "dev": "vite"
@@ -81,11 +85,6 @@
     },
     "react-dom": {
       "optional": true
-    }
-  },
-  "pnpm": {
-    "overrides": {
-      "vite": "6.3.5"
     }
   }
 }
