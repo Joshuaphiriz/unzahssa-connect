@@ -27,6 +27,7 @@ import { Analytics } from './components/admin/Analytics';
 import { PaymentsManagement } from './components/admin/PaymentsManagement';
 import { SystemBranding } from './components/admin/SystemBranding';
 import { AuditLogs } from './components/admin/AuditLogs';
+import { AcademicQueries } from './components/admin/AcademicQueries';
 
 function Loader() {
   return (
@@ -101,6 +102,7 @@ function AppRoutes() {
           <Route path="/admin/payments" element={<PaymentsManagement />} />
           <Route path="/admin/branding" element={<SystemBranding />} />
           <Route path="/admin/audit" element={<AuditLogs />} />
+          <Route path="/admin/academic-queries" element={<AcademicQueries />} />
         </Route>
 
         {/* Fallback */}

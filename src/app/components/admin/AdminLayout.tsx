@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet, useNavigate, Link } from 'react-router';
 import {
   LayoutDashboard, Users, Briefcase, BarChart2, CreditCard,
-  Palette, FileText, LogOut, GraduationCap, ChevronLeft, Menu
+  Palette, FileText, LogOut, GraduationCap, ChevronLeft, Menu, MessageSquare
 } from 'lucide-react';
 import { useAuth } from '../shared/AuthContext';
 import { useBranding } from '../shared/BrandingContext';
@@ -13,6 +13,7 @@ const NAV = [
   { to: '/admin/internships', label: 'Internship Reviews', icon: Briefcase },
   { to: '/admin/analytics', label: 'Analytics', icon: BarChart2 },
   { to: '/admin/payments', label: 'Payments', icon: CreditCard },
+  { to: '/admin/academic-queries', label: 'Academic Queries', icon: MessageSquare },
   { to: '/admin/branding', label: 'System Branding', icon: Palette },
   { to: '/admin/audit', label: 'Audit Logs', icon: FileText },
 ];
