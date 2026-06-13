@@ -7,6 +7,9 @@ import autoTable from 'jspdf-autotable';
 
 export function AdminDashboard() {
   const { token } = useAuth();
+  const [students, setStudents] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     students: 0,
     affiliated: 0,
@@ -15,9 +18,6 @@ export function AdminDashboard() {
     revenue: 0,
     queries: 0,
   });
-  const [students, setStudents] = useState([]);
-  const [payments, setPayments] = useState([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!token) return;
@@ -42,10 +42,11 @@ export function AdminDashboard() {
       .catch(console.error);
   }, [token]);
 
-  const statusData = [
-    { name: 'Pending', value: stats.pendingPayments },
-    { name: 'Approved', value: stats.payments?.filter((p: any) => p.status === 'approved').length || 0 },
-    { name: 'Placed', value: stats.placed },
+  // Chart data – using actual counts
+  const chartData = [
+    { name: 'Pending Payments', value: stats.pendingPayments },
+    { name: 'Approved Payments', value: payments.filter((p: any) => p.status === 'approved').length },
+    { name: 'Placed Students', value: stats.placed },
   ];
   const COLORS = ['#D4A33D', '#1E3A5F', '#2E7D55'];
 
@@ -118,8 +119,8 @@ export function AdminDashboard() {
       <div className="bg-white p-4 rounded-xl shadow-sm border mt-4">
         <h2 className="text-lg font-semibold mb-2">Application Status Distribution</h2>
         <PieChart width={400} height={300}>
-          <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-            {statusData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+          <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+            {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
           </Pie>
           <Tooltip />
           <Legend />

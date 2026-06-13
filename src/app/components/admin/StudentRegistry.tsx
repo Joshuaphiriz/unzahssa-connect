@@ -47,6 +47,15 @@ export function StudentRegistry() {
     doc.save('students.pdf');
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'approved': return 'bg-green-100 text-green-700';
+      case 'placed': return 'bg-blue-100 text-blue-700';
+      case 'pending': return 'bg-yellow-100 text-yellow-700';
+      default: return 'bg-gray-100 text-gray-500';
+    }
+  };
+
   if (loading) return <div className="p-6">Loading...</div>;
 
   return (
@@ -86,10 +95,21 @@ export function StudentRegistry() {
           <tbody>
             {filtered.map((s: any) => (
               <tr key={s.id} className="border-b hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium">{s.name}</td><td className="px-4 py-3 text-gray-600">{s.studentId}</td><td className="px-4 py-3">{s.yearOfStudy}</td><td className="px-4 py-3">{s.programme}</td><td className="px-4 py-3">{s.affiliationStatus === 'affiliated' ? 'Yes' : 'No'}</td><td className="px-4 py-3"><span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100">{s.internshipStatus}</span></td>
+                <td className="px-4 py-3 font-medium">{s.name}</td>
+                <td className="px-4 py-3 text-gray-600">{s.studentId}</td>
+                <td className="px-4 py-3">{s.yearOfStudy}</td>
+                <td className="px-4 py-3">{s.programme}</td>
+                <td className="px-4 py-3">{s.affiliationStatus === 'affiliated' ? 'Yes' : 'No'}</td>
+                <td className="px-4 py-3">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(s.internshipStatus)}`}>
+                    {s.internshipStatus}
+                  </span>
+                </td>
               </tr>
             ))}
-            {filtered.length === 0 && <tr><td colSpan={6} className="text-center py-8 text-gray-400">No students found</td></tr>}
+            {filtered.length === 0 && (
+              <tr><td colSpan={6} className="text-center py-8 text-gray-400">No students found</td></tr>
+            )}
           </tbody>
         </table>
       </div>
