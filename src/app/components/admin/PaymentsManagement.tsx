@@ -21,16 +21,34 @@ export function PaymentsManagement() {
     if (token) fetchPayments();
   }, [token]);
 
-  const updateStatus = async (id: string, status: string) => {
+  const updateStatus = async (id: string, status: string, payment: any) => {
     setProcessing(id);
     try {
       await api(`/payments/${id}`, { method: 'PUT', body: JSON.stringify({ status }) }, token);
+      
       if (status === 'approved') {
-        alert('Receipt sent to student email (demo).');
+        // Send email receipt
+        try {
+          await api('/send-receipt', {
+            method: 'POST',
+            body: JSON.stringify({
+              email: payment.userEmail,
+              name: payment.userName,
+              amount: payment.amount,
+              reference: payment.reference,
+              method: payment.method,
+            }),
+          }, token);
+          alert('Payment approved and receipt sent to student email!');
+        } catch (emailErr) {
+          console.error('Email failed:', emailErr);
+          alert('Payment approved but email receipt failed. Check Resend configuration.');
+        }
       }
       fetchPayments();
     } catch (err) {
       console.error(err);
+      alert('Failed to update payment status');
     } finally {
       setProcessing(null);
     }
@@ -38,14 +56,7 @@ export function PaymentsManagement() {
 
   const downloadPaymentsCSV = () => {
     const headers = ['Student', 'Amount', 'Method', 'Reference', 'Status', 'Submitted At'];
-    const rows = payments.map((p: any) => [
-      p.userName,
-      `ZMW ${p.amount}`,
-      p.method,
-      p.reference,
-      p.status,
-      new Date(p.submittedAt).toLocaleString()
-    ]);
+    const rows = payments.map((p: any) => [p.userName, `ZMW ${p.amount}`, p.method, p.reference, p.status, new Date(p.submittedAt).toLocaleString()]);
     const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -62,14 +73,7 @@ export function PaymentsManagement() {
     doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 18);
     autoTable(doc, {
       head: [['Student', 'Amount', 'Method', 'Reference', 'Status', 'Submitted']],
-      body: payments.map((p: any) => [
-        p.userName,
-        `ZMW ${p.amount}`,
-        p.method,
-        p.reference,
-        p.status,
-        new Date(p.submittedAt).toLocaleString()
-      ]),
+      body: payments.map((p: any) => [p.userName, `ZMW ${p.amount}`, p.method, p.reference, p.status, new Date(p.submittedAt).toLocaleString()]),
       startY: 25,
     });
     doc.save(`payments_${new Date().toISOString().slice(0, 19)}.pdf`);
@@ -91,12 +95,8 @@ export function PaymentsManagement() {
           </p>
         </div>
         <div className="flex gap-2">
-          <button onClick={downloadPaymentsCSV} className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition">
-            📄 CSV
-          </button>
-          <button onClick={downloadPaymentsPDF} className="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition">
-            📑 PDF
-          </button>
+          <button onClick={downloadPaymentsCSV} className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition">📄 CSV</button>
+          <button onClick={downloadPaymentsPDF} className="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition">📑 PDF</button>
         </div>
       </div>
 
@@ -130,7 +130,7 @@ export function PaymentsManagement() {
                 <td className="px-4 py-3">
                   {p.status === 'pending' && (
                     <button 
-                      onClick={() => updateStatus(p.id, 'approved')} 
+                      onClick={() => updateStatus(p.id, 'approved', p)} 
                       disabled={processing === p.id} 
                       className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 disabled:opacity-50"
                     >
@@ -144,7 +144,7 @@ export function PaymentsManagement() {
               </tr>
             ))}
             {payments.length === 0 && (
-              <tr><td colSpan={7} className="text-center py-8 text-gray-400">No payment submissions found</td></tr>
+              <tr><td colSpan={7} className="text-center py-8 text-gray-400">No payment submissions found</td</tr>
             )}
           </tbody>
         </table>
