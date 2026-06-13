@@ -23,9 +23,8 @@ export function PaymentsManagement() {
     setProcessing(id);
     try {
       await api(`/payments/${id}`, { method: 'PUT', body: JSON.stringify({ status }) }, token);
-      // In a real app, you'd call an email sending endpoint here
       if (status === 'approved') {
-        alert('Receipt sent to student email (demo).'); // Placeholder – integrate with your email service
+        alert('Receipt sent to student email (demo).');
       }
       fetchPayments();
     } catch (err) {
@@ -50,7 +49,7 @@ export function PaymentsManagement() {
               <th className="px-4 py-3">Reference</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Actions</th>
-            </table>
+             </tr>
           </thead>
           <tbody>
             {payments.map((p: any) => (
@@ -67,7 +66,9 @@ export function PaymentsManagement() {
                 </td>
                 <td className="px-4 py-3">
                   {p.status === 'pending' && (
-                    <button onClick={() => updateStatus(p.id, 'approved')} disabled={processing === p.id} className="px-3 py-1 bg-green-600 text-white rounded text-sm">Confirm & Send Receipt</button>
+                    <button onClick={() => updateStatus(p.id, 'approved')} disabled={processing === p.id} className="px-3 py-1 bg-green-600 text-white rounded text-sm">
+                      Confirm & Send Receipt
+                    </button>
                   )}
                 </td>
               </tr>

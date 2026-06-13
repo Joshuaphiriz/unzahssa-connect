@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../shared/AuthContext';
 import { api } from '../shared/api';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, LineChart, Line } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
 
 export function Analytics() {
   const { token } = useAuth();
   const [students, setStudents] = useState([]);
   const [payments, setPayments] = useState([]);
   const [programmeData, setProgrammeData] = useState([]);
-  const [monthlyData, setMonthlyData] = useState([]);
 
   useEffect(() => {
     if (!token) return;
@@ -16,7 +15,6 @@ export function Analytics() {
       .then(([s, p]) => {
         setStudents(s);
         setPayments(p);
-        // Programme breakdown
         const progMap = new Map();
         s.forEach((stu: any) => {
           const prog = stu.programme;
@@ -26,12 +24,6 @@ export function Analytics() {
           if (stu.affiliationStatus === 'affiliated') entry.affiliated++;
         });
         setProgrammeData(Array.from(progMap.entries()).map(([name, data]) => ({ name, ...data, rate: ((data.affiliated / data.students) * 100).toFixed(0) })));
-        // Monthly trend (mock – replace with real date aggregation)
-        setMonthlyData([
-          { month: 'Jan', open: 2, resolved: 1 },
-          { month: 'Feb', open: 3, resolved: 2 },
-          { month: 'Mar', open: 1, resolved: 3 },
-        ]);
       })
       .catch(console.error);
   }, [token]);
@@ -67,7 +59,7 @@ export function Analytics() {
         <div className="bg-white p-4 rounded-xl shadow-sm border"><p className="text-sm text-gray-500">Total Revenue (ZMW)</p><p className="text-2xl font-bold">{totalRevenue}</p></div>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid md:grid-cols-2 gap-6 mb-6">
         <div className="bg-white p-4 rounded-xl shadow-sm border">
           <h2 className="text-lg font-semibold mb-2">Affiliation Status</h2>
           <PieChart width={300} height={300}>
@@ -91,7 +83,7 @@ export function Analytics() {
         </div>
       </div>
 
-      <div className="mt-6">
+      <div>
         <button onClick={downloadCSV} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Download CSV Report</button>
       </div>
     </div>
