@@ -38,15 +38,16 @@ export function InternshipReviews() {
 
   if (loading) return <div className="p-6">Loading...</div>;
 
-  const eligibleApps = applications.filter((a: any) => a.yearOfStudy === 'Year 3' || a.yearOfStudy === 'Year 4');
+  // Show ALL applications that have been submitted (not just 3rd/4th year)
+  const submittedApps = applications.filter((a: any) => a.status !== 'draft');
 
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>Internship Reviews</h1>
-      <p className="text-gray-500 mb-6">3rd and 4th year students eligible for internship placement ({eligibleApps.length} total).</p>
+      <p className="text-gray-500 mb-6">Submitted internship applications ({submittedApps.length} total).</p>
 
       <div className="grid md:grid-cols-2 gap-4">
-        {eligibleApps.map((app: any) => (
+        {submittedApps.map((app: any) => (
           <div key={app.userId} className="border rounded-xl p-4 shadow-sm bg-white cursor-pointer hover:shadow-md transition" onClick={() => setSelectedApp(app)}>
             <h3 className="font-semibold text-lg">{app.userName}</h3>
             <p className="text-sm text-gray-500">{app.studentId} • {app.yearOfStudy} • {app.programme}</p>
@@ -57,11 +58,14 @@ export function InternshipReviews() {
               <span className={`text-xs px-2 py-1 rounded-full ${
                 app.status === 'approved' ? 'bg-green-100 text-green-700' :
                 app.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                app.status === 'placed' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100'
+                app.status === 'placed' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
               }`}>{app.status}</span>
             </div>
           </div>
         ))}
+        {submittedApps.length === 0 && (
+          <div className="col-span-2 text-center py-8 text-gray-400">No internship applications submitted yet.</div>
+        )}
       </div>
 
       {/* Modal for detailed review */}
