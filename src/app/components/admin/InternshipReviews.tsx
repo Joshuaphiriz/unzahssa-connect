@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../shared/AuthContext';
 import { api } from '../shared/api';
-import { FileText } from 'lucide-react';
+import { FileText, Eye, X } from 'lucide-react';
 
 export function InternshipReviews() {
   const { token } = useAuth();
@@ -10,6 +10,7 @@ export function InternshipReviews() {
   const [selectedApp, setSelectedApp] = useState<any>(null);
   const [reviewNote, setReviewNote] = useState('');
   const [updating, setUpdating] = useState(false);
+  const [viewingDoc, setViewingDoc] = useState<{ url: string; name: string } | null>(null);
 
   const fetchApps = () => {
     api('/internship/all', {}, token)
@@ -38,7 +39,6 @@ export function InternshipReviews() {
 
   if (loading) return <div className="p-6">Loading...</div>;
 
-  // Show ALL applications that have been submitted (not just 3rd/4th year)
   const submittedApps = applications.filter((a: any) => a.status !== 'draft');
 
   return (
@@ -71,11 +71,35 @@ export function InternshipReviews() {
       {/* Modal for detailed review */}
       {selectedApp && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-lg w-full p-6">
-            <h2 className="text-xl font-bold mb-2">{selectedApp.userName}</h2>
+          <div className="bg-white rounded-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-xl font-bold">{selectedApp.userName}</h2>
+              <button onClick={() => setSelectedApp(null)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+            </div>
             <p className="text-sm text-gray-500 mb-4">{selectedApp.studentId} • {selectedApp.programme} • {selectedApp.yearOfStudy}</p>
             <p className="mb-2"><strong>Email:</strong> {selectedApp.userEmail}</p>
-            <p className="mb-4"><strong>Documents:</strong> {selectedApp.documents?.length || 0} uploaded</p>
+            
+            {/* Documents section */}
+            <div className="mb-4">
+              <strong>Uploaded Documents:</strong>
+              {selectedApp.documents?.length > 0 ? (
+                <ul className="mt-2 space-y-1">
+                  {selectedApp.documents.map((doc: any, idx: number) => (
+                    <li key={idx} className="flex items-center gap-2 text-sm">
+                      <FileText size={14} className="text-gray-400" />
+                      <span>{doc.name}</span>
+                      <button
+                        onClick={() => setViewingDoc({ url: doc.url, name: doc.name })}
+                        className="ml-auto text-blue-600 hover:underline text-xs flex items-center gap-1"
+                      >
+                        <Eye size={12} /> View
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="text-sm text-gray-400 mt-1">No documents uploaded.</p>}
+            </div>
+
             <textarea
               placeholder="Add review notes (optional)..."
               value={reviewNote}
@@ -87,7 +111,25 @@ export function InternshipReviews() {
               <button onClick={() => updateStatus(selectedApp.userId, 'approved')} disabled={updating} className="px-4 py-2 bg-green-600 text-white rounded-lg">Approve</button>
               <button onClick={() => updateStatus(selectedApp.userId, 'pending')} disabled={updating} className="px-4 py-2 bg-yellow-600 text-white rounded-lg">Mark Pending</button>
               <button onClick={() => updateStatus(selectedApp.userId, 'placed')} disabled={updating} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Mark Placed</button>
-              <button onClick={() => setSelectedApp(null)} className="px-4 py-2 bg-gray-200 rounded-lg">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document preview modal */}
+      {viewingDoc && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h3 className="font-semibold">{viewingDoc.name}</h3>
+              <button onClick={() => setViewingDoc(null)} className="text-gray-500 hover:text-gray-700"><X size={20} /></button>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+              {viewingDoc.url.endsWith('.pdf') ? (
+                <iframe src={viewingDoc.url} className="w-full h-[70vh]" title="PDF Preview" />
+              ) : (
+                <img src={viewingDoc.url} alt="Document preview" className="max-w-full" />
+              )}
             </div>
           </div>
         </div>
