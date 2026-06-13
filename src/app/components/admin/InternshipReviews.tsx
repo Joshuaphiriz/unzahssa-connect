@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../shared/AuthContext';
 import { api } from '../shared/api';
+import { FileText } from 'lucide-react';
 
 export function InternshipReviews() {
   const { token } = useAuth();
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedApp, setSelectedApp] = useState<any>(null);
+  const [reviewNote, setReviewNote] = useState('');
+  const [updating, setUpdating] = useState(false);
 
   const fetchApps = () => {
     api('/internship/all', {}, token)
@@ -18,45 +22,72 @@ export function InternshipReviews() {
     if (token) fetchApps();
   }, [token]);
 
-  const updateStatus = async (userId: string, status: string, reviewNotes?: string) => {
-    await api(`/internship/${userId}`, { method: 'PUT', body: JSON.stringify({ status, reviewNotes }) }, token);
-    fetchApps();
+  const updateStatus = async (userId: string, status: string) => {
+    setUpdating(true);
+    try {
+      await api(`/internship/${userId}`, { method: 'PUT', body: JSON.stringify({ status, reviewNotes: reviewNote }) }, token);
+      setReviewNote('');
+      setSelectedApp(null);
+      fetchApps();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUpdating(false);
+    }
   };
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <div className="p-6">Loading...</div>;
+
+  const eligibleApps = applications.filter((a: any) => a.yearOfStudy === 'Year 3' || a.yearOfStudy === 'Year 4');
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Internship Applications</h1>
-      <div className="grid gap-4">
-        {applications.map((app: any) => (
-          <div key={app.userId} className="border rounded-lg p-4 shadow-sm">
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="font-semibold">{app.userName}</h3>
-                <p className="text-sm text-gray-600">{app.userEmail} | {app.studentId}</p>
-                <p className="text-sm">Programme: {app.programme} | Year: {app.yearOfStudy}</p>
-                <p className="text-sm mt-1"><strong>Documents:</strong> {app.documents?.length || 0} uploaded</p>
-                {app.reviewNotes && <p className="text-sm text-blue-600 mt-1">Review notes: {app.reviewNotes}</p>}
-              </div>
-              <div className="text-right">
-                <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
-                  app.status === 'approved' ? 'bg-green-100 text-green-800' :
-                  app.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                  app.status === 'placed' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
-                }`}>{app.status}</span>
-              </div>
+      <h1 className="text-2xl font-bold mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>Internship Reviews</h1>
+      <p className="text-gray-500 mb-6">3rd and 4th year students eligible for internship placement ({eligibleApps.length} total).</p>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        {eligibleApps.map((app: any) => (
+          <div key={app.userId} className="border rounded-xl p-4 shadow-sm bg-white cursor-pointer hover:shadow-md transition" onClick={() => setSelectedApp(app)}>
+            <h3 className="font-semibold text-lg">{app.userName}</h3>
+            <p className="text-sm text-gray-500">{app.studentId} • {app.yearOfStudy} • {app.programme}</p>
+            <div className="flex items-center gap-2 mt-2 text-sm text-gray-400">
+              <FileText size={14} /> {app.documents?.length || 0} docs
             </div>
-            {app.status === 'pending' && (
-              <div className="mt-3 flex gap-2">
-                <button onClick={() => updateStatus(app.userId, 'approved', 'Approved for interview')} className="bg-green-600 text-white px-3 py-1 rounded text-sm">Approve</button>
-                <button onClick={() => updateStatus(app.userId, 'rejected', 'Not selected this round')} className="bg-red-600 text-white px-3 py-1 rounded text-sm">Reject</button>
-                <button onClick={() => updateStatus(app.userId, 'placed', 'Placement offered')} className="bg-blue-600 text-white px-3 py-1 rounded text-sm">Mark Placed</button>
-              </div>
-            )}
+            <div className="mt-2">
+              <span className={`text-xs px-2 py-1 rounded-full ${
+                app.status === 'approved' ? 'bg-green-100 text-green-700' :
+                app.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                app.status === 'placed' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100'
+              }`}>{app.status}</span>
+            </div>
           </div>
         ))}
       </div>
+
+      {/* Modal for detailed review */}
+      {selectedApp && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-lg w-full p-6">
+            <h2 className="text-xl font-bold mb-2">{selectedApp.userName}</h2>
+            <p className="text-sm text-gray-500 mb-4">{selectedApp.studentId} • {selectedApp.programme} • {selectedApp.yearOfStudy}</p>
+            <p className="mb-2"><strong>Email:</strong> {selectedApp.userEmail}</p>
+            <p className="mb-4"><strong>Documents:</strong> {selectedApp.documents?.length || 0} uploaded</p>
+            <textarea
+              placeholder="Add review notes (optional)..."
+              value={reviewNote}
+              onChange={(e) => setReviewNote(e.target.value)}
+              rows={3}
+              className="w-full border rounded-lg p-2 text-sm mb-4"
+            />
+            <div className="flex gap-2">
+              <button onClick={() => updateStatus(selectedApp.userId, 'approved')} disabled={updating} className="px-4 py-2 bg-green-600 text-white rounded-lg">Approve</button>
+              <button onClick={() => updateStatus(selectedApp.userId, 'pending')} disabled={updating} className="px-4 py-2 bg-yellow-600 text-white rounded-lg">Mark Pending</button>
+              <button onClick={() => updateStatus(selectedApp.userId, 'placed')} disabled={updating} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Mark Placed</button>
+              <button onClick={() => setSelectedApp(null)} className="px-4 py-2 bg-gray-200 rounded-lg">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
