@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../shared/AuthContext';
 import { api } from '../shared/api';
-import { Search } from 'lucide-react';
+import { Search, Download } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export function StudentRegistry() {
   const { token } = useAuth();
@@ -23,26 +25,45 @@ export function StudentRegistry() {
     return matchesSearch && matchesYear && matchesStatus;
   });
 
+  const downloadCSV = () => {
+    const headers = ['Name', 'Student ID', 'Year', 'Programme', 'Affiliated', 'Internship Status'];
+    const rows = filtered.map((s: any) => [s.name, s.studentId, s.yearOfStudy, s.programme, s.affiliationStatus === 'affiliated' ? 'Yes' : 'No', s.internshipStatus]);
+    const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'students.csv'; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadPDF = () => {
+    const doc = new jsPDF();
+    doc.text('Student Registry', 14, 10);
+    autoTable(doc, {
+      head: [['Name', 'Student ID', 'Year', 'Programme', 'Affiliated', 'Status']],
+      body: filtered.map((s: any) => [s.name, s.studentId, s.yearOfStudy, s.programme, s.affiliationStatus === 'affiliated' ? 'Yes' : 'No', s.internshipStatus]),
+      startY: 20,
+    });
+    doc.save('students.pdf');
+  };
+
   if (loading) return <div className="p-6">Loading...</div>;
 
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-2xl font-bold" style={{ fontFamily: 'Playfair Display, serif' }}>Student Registry</h1>
-        <p className="text-sm text-gray-500">{filtered.length} of {students.length} students</p>
+        <div className="flex gap-2">
+          <button onClick={downloadCSV} className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white rounded text-sm"><Download size={14} /> CSV</button>
+          <button onClick={downloadPDF} className="flex items-center gap-1 px-3 py-1 bg-red-600 text-white rounded text-sm"><Download size={14} /> PDF</button>
+        </div>
       </div>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-6">
         <div className="relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search by name, ID, or programme..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 pr-4 py-2 border rounded-lg text-sm w-80"
-          />
+          <input type="text" placeholder="Search by name, ID..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 pr-4 py-2 border rounded-lg text-sm w-80" />
         </div>
         <select value={yearFilter} onChange={(e) => setYearFilter(e.target.value)} className="px-3 py-2 border rounded-lg text-sm">
           <option value="">All Years</option>
@@ -59,34 +80,16 @@ export function StudentRegistry() {
         <table className="w-full">
           <thead className="bg-gray-50 border-b">
             <tr className="text-left text-sm font-medium text-gray-500">
-              <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">Student ID</th>
-              <th className="px-4 py-3">Year</th>
-              <th className="px-4 py-3">Programme</th>
-              <th className="px-4 py-3">Affiliated</th>
-              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Name</th><th className="px-4 py-3">Student ID</th><th className="px-4 py-3">Year</th><th className="px-4 py-3">Programme</th><th className="px-4 py-3">Affiliated</th><th className="px-4 py-3">Status</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((s: any) => (
               <tr key={s.id} className="border-b hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium">{s.name}</td>
-                <td className="px-4 py-3 text-gray-600">{s.studentId}</td>
-                <td className="px-4 py-3">{s.yearOfStudy}</td>
-                <td className="px-4 py-3">{s.programme}</td>
-                <td className="px-4 py-3">{s.affiliationStatus === 'affiliated' ? 'Yes' : 'No'}</td>
-                <td className="px-4 py-3">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    s.internshipStatus === 'placed' ? 'bg-green-100 text-green-700' :
-                    s.internshipStatus === 'approved' ? 'bg-blue-100 text-blue-700' :
-                    s.internshipStatus === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'
-                  }`}>{s.internshipStatus}</span>
-                </td>
+                <td className="px-4 py-3 font-medium">{s.name}</td><td className="px-4 py-3 text-gray-600">{s.studentId}</td><td className="px-4 py-3">{s.yearOfStudy}</td><td className="px-4 py-3">{s.programme}</td><td className="px-4 py-3">{s.affiliationStatus === 'affiliated' ? 'Yes' : 'No'}</td><td className="px-4 py-3"><span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100">{s.internshipStatus}</span></td>
               </tr>
             ))}
-            {filtered.length === 0 && (
-              <tr><td colSpan={6} className="text-center py-8 text-gray-400">No students found</td></tr>
-            )}
+            {filtered.length === 0 && <tr><td colSpan={6} className="text-center py-8 text-gray-400">No students found</td></tr>}
           </tbody>
         </table>
       </div>
