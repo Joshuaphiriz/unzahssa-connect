@@ -27,7 +27,6 @@ export function PaymentsManagement() {
       await api(`/payments/${id}`, { method: 'PUT', body: JSON.stringify({ status }) }, token);
       
       if (status === 'approved') {
-        // Send email receipt
         try {
           await api('/send-receipt', {
             method: 'POST',
@@ -144,7 +143,9 @@ export function PaymentsManagement() {
               </tr>
             ))}
             {payments.length === 0 && (
-              <tr><td colSpan={7} className="text-center py-8 text-gray-400">No payment submissions found</td</tr>
+              <tr>
+                <td colSpan={7} className="text-center py-8 text-gray-400">No payment submissions found</td>
+              </tr>
             )}
           </tbody>
         </table>
