@@ -66,42 +66,40 @@ export function Affiliations() {
     return `${prefix}-${timestamp}-${random}`;
   };
 
-  const downloadReceipt = (payment: any) => {
-    const receiptNo = generateReceiptNumber();
-    const doc = new jsPDF();
-    doc.setFontSize(18);
-    doc.text('UNZAHSSA Connect – Payment Receipt', 14, 20);
-    doc.setFontSize(10);
-    doc.text(`Receipt No: ${receiptNo}`, 14, 30);
-    doc.text(`Date: ${new Date().toLocaleString()}`, 14, 36);
-    doc.text(`Student: ${payment.userName} (${payment.userEmail})`, 14, 42);
-    doc.text(`Student ID: ${payment.studentId || 'N/A'}`, 14, 48);
-    doc.text(`Programme: ${payment.programme || 'N/A'}`, 14, 54);
-    autoTable(doc, {
-      head: [['Description', 'Amount']],
-      body: [
-        ['Affiliation Fee', `ZMW ${payment.amount}`],
-        ['Reference', payment.reference],
-        ['Payment Method', payment.method],
-      ],
-      startY: 62,
-    });
-    const finalY = (doc as any).lastAutoTable?.finalY || 70;
-    doc.text('Thank you for affiliating with UNZAHSSA.', 14, finalY + 10);
-    doc.save(`receipt_${receiptNo}.pdf`);
-  };
+const downloadReceipt = (payment: any) => {
+  const receiptNo = generateReceiptNumber();
+  const doc = new jsPDF();
 
-  if (loading) return <div className="p-6">Loading...</div>;
+  // Add logo (UNZAHSSA logo) – top right corner
+  const logoUrl = '/unzahssa-logo.jpg'; // Place logo in public folder
+  try {
+    doc.addImage(logoUrl, 'JPEG', 160, 10, 35, 20);
+  } catch (e) {
+    // If logo fails to load, skip it
+    console.log('Logo not found, continuing without it');
+  }
 
-  const latestPayment = payments.length > 0 ? payments[0] : null;
-  const isAffiliated = latestPayment?.status === 'approved';
-
-  return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>Affiliations</h1>
-      <p className="text-gray-500 mb-6">
-        Affiliation Fee: <span className="font-semibold">ZMW {branding.affiliationFee || 50}</span>
-      </p>
+  doc.setFontSize(18);
+  doc.text('UNZAHSSA Connect – Payment Receipt', 14, 20);
+  doc.setFontSize(10);
+  doc.text(`Receipt No: ${receiptNo}`, 14, 30);
+  doc.text(`Date: ${new Date().toLocaleString()}`, 14, 36);
+  doc.text(`Student: ${payment.userName} (${payment.userEmail})`, 14, 42);
+  doc.text(`Student ID: ${payment.studentId || 'N/A'}`, 14, 48);
+  doc.text(`Programme: ${payment.programme || 'N/A'}`, 14, 54);
+  autoTable(doc, {
+    head: [['Description', 'Amount']],
+    body: [
+      ['Affiliation Fee', `ZMW ${payment.amount}`],
+      ['Reference', payment.reference],
+      ['Payment Method', payment.method],
+    ],
+    startY: 62,
+  });
+  const finalY = (doc as any).lastAutoTable?.finalY || 70;
+  doc.text('Thank you for affiliating with UNZAHSSA.', 14, finalY + 10);
+  doc.save(`receipt_${receiptNo}.pdf`);
+};
 
       {/* Status Card */}
       {latestPayment && (

@@ -12,7 +12,6 @@ export function StudentRegistry() {
   const [search, setSearch] = useState('');
   const [yearFilter, setYearFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
 
   const fetchStudents = () => {
     if (!token) return;
@@ -22,20 +21,6 @@ export function StudentRegistry() {
   useEffect(() => {
     fetchStudents();
   }, [token]);
-
-  const resetSelected = async () => {
-    if (selectedStudents.length === 0) return;
-    if (!confirm(`Reset ${selectedStudents.length} student(s) to non‑affiliated?`)) return;
-    await api('/admin/reset-affiliation', { method: 'POST', body: JSON.stringify({ studentIds: selectedStudents }) }, token);
-    setSelectedStudents([]);
-    fetchStudents();
-  };
-
-  const resetAll = async () => {
-    if (!confirm('⚠️ Reset ALL students to non‑affiliated? This cannot be undone.')) return;
-    await api('/admin/reset-all-affiliation', { method: 'POST' }, token);
-    fetchStudents();
-  };
 
   const filtered = students.filter((s: any) => {
     const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase()) || s.studentId.includes(search);
@@ -103,20 +88,11 @@ export function StudentRegistry() {
         </select>
       </div>
 
-      {/* Reset buttons */}
-      <div className="flex gap-2 mb-4">
-        <button onClick={resetSelected} disabled={selectedStudents.length === 0} className="px-3 py-1 bg-yellow-600 text-white rounded text-sm disabled:opacity-50">
-          Reset Selected ({selectedStudents.length})
-        </button>
-        <button onClick={resetAll} className="px-3 py-1 bg-red-600 text-white rounded text-sm">Reset All</button>
-      </div>
-
       {/* Table */}
       <div className="overflow-x-auto border rounded-xl">
         <table className="w-full">
           <thead className="bg-gray-50 border-b">
             <tr className="text-left text-sm font-medium text-gray-500">
-              <th className="px-4 py-3"><input type="checkbox" onChange={(e) => e.target.checked ? setSelectedStudents(students.map((s: any) => s.id)) : setSelectedStudents([])} /></th>
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Student ID</th>
               <th className="px-4 py-3">Year</th>
@@ -128,7 +104,6 @@ export function StudentRegistry() {
           <tbody>
             {filtered.map((s: any) => (
               <tr key={s.id} className="border-b hover:bg-gray-50">
-                <td className="px-4 py-3"><input type="checkbox" checked={selectedStudents.includes(s.id)} onChange={(e) => e.target.checked ? setSelectedStudents([...selectedStudents, s.id]) : setSelectedStudents(selectedStudents.filter(id => id !== s.id))} /></td>
                 <td className="px-4 py-3 font-medium">{s.name}</td>
                 <td className="px-4 py-3 text-gray-600">{s.studentId}</td>
                 <td className="px-4 py-3">{s.yearOfStudy}</td>
@@ -142,7 +117,7 @@ export function StudentRegistry() {
               </tr>
             ))}
             {filtered.length === 0 && (
-              <tr><td colSpan={7} className="text-center py-8 text-gray-400">No students found</td></tr>
+              <tr><td colSpan={6} className="text-center py-8 text-gray-400">No students found</td></tr>
             )}
           </tbody>
         </table>
