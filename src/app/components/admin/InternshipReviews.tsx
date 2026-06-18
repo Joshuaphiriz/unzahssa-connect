@@ -1,185 +1,157 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../shared/AuthContext';
 import { api } from '../shared/api';
-import { FileText, Eye, X } from 'lucide-react';
+import { FileText } from 'lucide-react';
 
-export function InternshipReviews() {
-  const { token } = useAuth();
-  const [applications, setApplications] = useState([]);
+export function InternshipPortal() {
+  const { user, token } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [selectedApp, setSelectedApp] = useState<any>(null);
-  const [reviewNote, setReviewNote] = useState('');
-  const [updating, setUpdating] = useState(false);
-  const [viewingDoc, setViewingDoc] = useState<{ url: string; name: string } | null>(null);
-
-  const fetchApps = () => {
-    api('/internship/all', {}, token)
-      .then(setApplications)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  };
+  const [submitting, setSubmitting] = useState(false);
+  const [programmes, setProgrammes] = useState<string[]>([]);
+  const [application, setApplication] = useState<any>(null);
+  const [form, setForm] = useState({
+    programme: '',
+    yearOfStudy: '',
+    company: '',
+    position: '',
+    startDate: '',
+    endDate: '',
+    supervisor: '',
+    supervisorEmail: '',
+    description: '',
+    documents: [] as File[],
+  });
 
   useEffect(() => {
-    if (token) fetchApps();
+    Promise.all([
+      api('/programmes', { method: 'GET' }),
+      api('/internship/my', {}, token),
+    ]).then(([progs, app]) => {
+      setProgrammes(progs || []);
+      setApplication(app);
+      if (app && app.status !== 'draft') {
+        setForm({
+          programme: app.programme || '',
+          yearOfStudy: app.yearOfStudy || '',
+          company: app.company || '',
+          position: app.position || '',
+          startDate: app.startDate || '',
+          endDate: app.endDate || '',
+          supervisor: app.supervisor || '',
+          supervisorEmail: app.supervisorEmail || '',
+          description: app.description || '',
+          documents: [],
+        });
+      }
+      setLoading(false);
+    }).catch(console.error);
   }, [token]);
 
-  const updateStatus = async (userId: string, status: string) => {
-    setUpdating(true);
+  const set = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
     try {
-      await api(`/internship/${userId}`, { method: 'PUT', body: JSON.stringify({ status, reviewNotes: reviewNote }) }, token);
-      setReviewNote('');
-      setSelectedApp(null);
-      fetchApps();
+      const payload = { ...form, submit: true };
+      await api('/internship', { method: 'POST', body: JSON.stringify(payload) }, token);
+      alert('Application submitted successfully!');
+      const updated = await api('/internship/my', {}, token);
+      setApplication(updated);
+      setForm(prev => ({ ...prev, documents: [] }));
     } catch (err) {
-      console.error(err);
+      alert('Failed to submit application');
     } finally {
-      setUpdating(false);
+      setSubmitting(false);
     }
   };
 
   if (loading) return <div className="p-6">Loading...</div>;
 
-  const submittedApps = applications.filter((a: any) => a.status !== 'draft');
+  const hasSubmitted = application && application.status !== 'draft';
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>Internship Reviews</h1>
-      <p className="text-gray-500 mb-6">Submitted internship applications ({submittedApps.length} total).</p>
+    <div className="p-6 max-w-3xl mx-auto">
+      <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'Playfair Display, serif' }}>Internship Application</h1>
 
-      <div className="grid md:grid-cols-2 gap-4">
-        {submittedApps.map((app: any) => (
-          <div 
-            key={app.userId} 
-            className="border rounded-xl p-4 shadow-sm bg-white cursor-pointer hover:shadow-md transition" 
-            onClick={() => setSelectedApp(app)}
-          >
-            <h3 className="font-semibold text-lg">{app.userName}</h3>
-            <p className="text-sm text-gray-500">{app.studentId} • {app.yearOfStudy} • {app.programme}</p>
-            <div className="flex items-center gap-2 mt-2 text-sm text-gray-400">
-              <FileText size={14} /> {app.documents?.length || 0} docs
-            </div>
-            <div className="mt-2">
-              <span className={`text-xs px-2 py-1 rounded-full ${
-                app.status === 'approved' ? 'bg-green-100 text-green-700' :
-                app.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                app.status === 'placed' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
-              }`}>{app.status}</span>
-            </div>
-          </div>
-        ))}
-        {submittedApps.length === 0 && (
-          <div className="col-span-2 text-center py-8 text-gray-400">No internship applications submitted yet.</div>
-        )}
-      </div>
-
-      {/* Modal for detailed review */}
-      {selectedApp && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h2 className="text-xl font-bold">{selectedApp.userName}</h2>
-                <p className="text-sm text-gray-500">{selectedApp.studentId} • {selectedApp.programme} • {selectedApp.yearOfStudy}</p>
-              </div>
-              <button onClick={() => setSelectedApp(null)} className="text-gray-400 hover:text-gray-600">
-                <X size={20} />
-              </button>
-            </div>
-
-            <p className="mb-2"><strong>Email:</strong> {selectedApp.userEmail}</p>
-
-            {/* Documents section */}
-            <div className="mb-4">
-              <strong>Uploaded Documents:</strong>
-              {selectedApp.documents && selectedApp.documents.length > 0 ? (
-                <ul className="mt-2 space-y-1">
-                  {selectedApp.documents.map((doc: any, idx: number) => (
-                    <li key={idx} className="flex items-center gap-2 text-sm border-b pb-1">
-                      <FileText size={14} className="text-gray-400" />
-                      <span>{doc.name || 'Document'}</span>
-                      <button
-                        onClick={() => setViewingDoc({ url: doc.url, name: doc.name || 'Document' })}
-                        className="ml-auto text-blue-600 hover:underline text-xs flex items-center gap-1"
-                      >
-                        <Eye size={12} /> View
-                      </button>
-                      <a href={doc.url} download className="text-green-600 hover:underline text-xs flex items-center gap-1">
-                        Download
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-gray-400 mt-1">No documents uploaded.</p>
-              )}
-            </div>
-
-            {/* Review notes */}
-            <textarea
-              placeholder="Add review notes (optional)..."
-              value={reviewNote}
-              onChange={(e) => setReviewNote(e.target.value)}
-              rows={3}
-              className="w-full border rounded-lg p-2 text-sm mb-4"
-            />
-
-            {/* Status buttons */}
-            <div className="flex gap-2 flex-wrap">
-              <button 
-                onClick={() => updateStatus(selectedApp.userId, 'approved')} 
-                disabled={updating} 
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-              >
-                Approve
-              </button>
-              <button 
-                onClick={() => updateStatus(selectedApp.userId, 'pending')} 
-                disabled={updating} 
-                className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50"
-              >
-                Mark Pending
-              </button>
-              <button 
-                onClick={() => updateStatus(selectedApp.userId, 'placed')} 
-                disabled={updating} 
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-              >
-                Mark Placed
-              </button>
-              <button 
-                onClick={() => updateStatus(selectedApp.userId, 'rejected')} 
-                disabled={updating} 
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-              >
-                Reject
-              </button>
-            </div>
-          </div>
+      {hasSubmitted && (
+        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+          <p className="text-green-700 font-medium">✅ Application submitted on {new Date(application.submittedAt).toLocaleDateString()}</p>
+          <p className="text-sm text-gray-600">Status: <span className="font-semibold">{application.status}</span></p>
+          <p className="text-sm text-gray-500 mt-1">You can edit your application at any time.</p>
         </div>
       )}
 
-      {/* Document preview modal */}
-      {viewingDoc && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex justify-between items-center p-4 border-b">
-              <h3 className="font-semibold">{viewingDoc.name}</h3>
-              <button onClick={() => setViewingDoc(null)} className="text-gray-500 hover:text-gray-700">
-                <X size={20} />
-              </button>
-            </div>
-            <div className="flex-1 overflow-auto p-4">
-              {viewingDoc.url && viewingDoc.url.endsWith('.pdf') ? (
-                <iframe src={viewingDoc.url} className="w-full h-[70vh]" title="PDF Preview" />
-              ) : viewingDoc.url ? (
-                <img src={viewingDoc.url} alt="Document preview" className="max-w-full" />
-              ) : (
-                <p className="text-gray-400">Preview not available for this file type.</p>
-              )}
-            </div>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Programme</label>
+            <select value={form.programme} onChange={e => set('programme', e.target.value)} required className="w-full px-3 py-2 border rounded-lg">
+              <option value="">Select programme…</option>
+              {programmes.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Year of Study</label>
+            <select value={form.yearOfStudy} onChange={e => set('yearOfStudy', e.target.value)} required className="w-full px-3 py-2 border rounded-lg">
+              <option value="">Select year…</option>
+              <option>Year 1</option><option>Year 2</option><option>Year 3</option><option>Year 4</option><option>Postgraduate</option>
+            </select>
           </div>
         </div>
-      )}
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Company/Organisation</label>
+            <input type="text" value={form.company} onChange={e => set('company', e.target.value)} required className="w-full px-3 py-2 border rounded-lg" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Position</label>
+            <input type="text" value={form.position} onChange={e => set('position', e.target.value)} required className="w-full px-3 py-2 border rounded-lg" />
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Start Date</label>
+            <input type="date" value={form.startDate} onChange={e => set('startDate', e.target.value)} required className="w-full px-3 py-2 border rounded-lg" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">End Date</label>
+            <input type="date" value={form.endDate} onChange={e => set('endDate', e.target.value)} required className="w-full px-3 py-2 border rounded-lg" />
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Supervisor Name</label>
+            <input type="text" value={form.supervisor} onChange={e => set('supervisor', e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Supervisor Email</label>
+            <input type="email" value={form.supervisorEmail} onChange={e => set('supervisorEmail', e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Description</label>
+          <textarea value={form.description} onChange={e => set('description', e.target.value)} rows={4} className="w-full px-3 py-2 border rounded-lg" placeholder="Brief description of your internship..." />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Upload Documents (CV, Cover Letter, etc.)</label>
+          <input type="file" multiple onChange={(e) => set('documents', Array.from(e.target.files || []))} className="w-full" />
+          {form.documents.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {form.documents.map((f, i) => <li key={i} className="text-sm text-gray-600 flex items-center gap-2"><FileText size={14} />{f.name}</li>)}
+            </ul>
+          )}
+        </div>
+
+        <button type="submit" disabled={submitting} className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+          {submitting ? 'Submitting...' : hasSubmitted ? 'Update Application' : 'Submit Application'}
+        </button>
+      </form>
     </div>
   );
 }

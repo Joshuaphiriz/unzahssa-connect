@@ -11,6 +11,8 @@ export function PaymentsManagement() {
   const [processing, setProcessing] = useState<string | null>(null);
   const [searchReceipt, setSearchReceipt] = useState('');
   const [monthFilter, setMonthFilter] = useState('');
+  const [selectedPayments, setSelectedPayments] = useState<string[]>([]);
+  const [resetMessage, setResetMessage] = useState('');
 
   const fetchPayments = () => {
     api('/payments', {}, token)
@@ -28,11 +30,38 @@ export function PaymentsManagement() {
     try {
       await api(`/payments/${id}`, { method: 'PUT', body: JSON.stringify({ status }) }, token);
       fetchPayments();
+      if (status === 'rejected') {
+        setResetMessage('Affiliation reset. Please affiliate again.');
+        setTimeout(() => setResetMessage(''), 3000);
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setProcessing(null);
     }
+  };
+
+  const resetSelected = async () => {
+    if (selectedPayments.length === 0) return;
+    if (!confirm(`Reset ${selectedPayments.length} payment(s) to rejected?`)) return;
+    for (const id of selectedPayments) {
+      await api(`/payments/${id}`, { method: 'PUT', body: JSON.stringify({ status: 'rejected' }) }, token);
+    }
+    setSelectedPayments([]);
+    setResetMessage(`${selectedPayments.length} affiliation(s) reset. Please affiliate again.`);
+    setTimeout(() => setResetMessage(''), 3000);
+    fetchPayments();
+  };
+
+  const resetAll = async () => {
+    if (!confirm('⚠️ Reset ALL affiliations to rejected? This cannot be undone.')) return;
+    const allPayments = payments.filter((p: any) => p.status === 'approved' || p.status === 'pending');
+    for (const p of allPayments) {
+      await api(`/payments/${p.id}`, { method: 'PUT', body: JSON.stringify({ status: 'rejected' }) }, token);
+    }
+    setResetMessage(`All affiliations reset. Please affiliate again.`);
+    setTimeout(() => setResetMessage(''), 3000);
+    fetchPayments();
   };
 
   const filteredPayments = payments.filter((p: any) => {
@@ -87,8 +116,28 @@ export function PaymentsManagement() {
         </div>
       </div>
 
+      {resetMessage && (
+        <div className="mb-4 p-3 bg-yellow-100 text-yellow-800 rounded-lg">
+          {resetMessage}
+        </div>
+      )}
+
+      {/* Reset buttons */}
+      <div className="flex gap-2 mb-4">
+        <button
+          onClick={resetSelected}
+          disabled={selectedPayments.length === 0}
+          className="px-3 py-1 bg-yellow-600 text-white rounded text-sm disabled:opacity-50"
+        >
+          Reset Selected ({selectedPayments.length})
+        </button>
+        <button onClick={resetAll} className="px-3 py-1 bg-red-600 text-white rounded text-sm">
+          Reset All
+        </button>
+      </div>
+
       {/* Search and Filter */}
-      <div className="flex gap-3 mb-4">
+      <div className="flex flex-wrap gap-3 mb-4">
         <input
           type="text"
           placeholder="Search by receipt number..."
@@ -122,6 +171,9 @@ export function PaymentsManagement() {
         <table className="w-full">
           <thead className="bg-gray-50 border-b">
             <tr className="text-left text-sm text-gray-500">
+              <th className="px-4 py-3">
+                <input type="checkbox" onChange={(e) => e.target.checked ? setSelectedPayments(payments.map((p: any) => p.id)) : setSelectedPayments([])} />
+              </th>
               <th className="px-4 py-3">Student</th>
               <th className="px-4 py-3">Amount</th>
               <th className="px-4 py-3">Method</th>
@@ -135,6 +187,13 @@ export function PaymentsManagement() {
           <tbody>
             {filteredPayments.map((p: any) => (
               <tr key={p.id} className="border-b hover:bg-gray-50">
+                <td className="px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedPayments.includes(p.id)}
+                    onChange={(e) => e.target.checked ? setSelectedPayments([...selectedPayments, p.id]) : setSelectedPayments(selectedPayments.filter(id => id !== p.id))}
+                  />
+                </td>
                 <td className="px-4 py-3 font-medium">{p.userName} <span className="text-xs text-gray-400 block">{p.userEmail}</span></td>
                 <td className="px-4 py-3 font-semibold">ZMW {p.amount}</td>
                 <td className="px-4 py-3">{p.method}</td>
@@ -149,7 +208,7 @@ export function PaymentsManagement() {
                 <td className="px-4 py-3 text-sm text-gray-500">{new Date(p.submittedAt).toLocaleDateString()}</td>
                 <td className="px-4 py-3">
                   {p.status === 'pending' && (
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <button
                         onClick={() => updateStatus(p.id, 'approved')}
                         disabled={processing === p.id}
@@ -162,7 +221,7 @@ export function PaymentsManagement() {
                         disabled={processing === p.id}
                         className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 disabled:opacity-50"
                       >
-                        {processing === p.id ? '...' : 'Reject'}
+                        {processing === p.id ? '...' : 'Reset'}
                       </button>
                     </div>
                   )}
@@ -174,7 +233,7 @@ export function PaymentsManagement() {
             ))}
             {filteredPayments.length === 0 && (
               <tr>
-                <td colSpan={8} className="text-center py-8 text-gray-400">No payment submissions found</td>
+                <td colSpan={9} className="text-center py-8 text-gray-400">No payment submissions found</td>
               </tr>
             )}
           </tbody>
