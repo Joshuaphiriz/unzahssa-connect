@@ -1,9 +1,8 @@
-import { LayoutDashboard, Users, Briefcase, BarChart2, CreditCard, Palette, FileText, LogOut, GraduationCap, ChevronLeft, Menu, MessageSquare, BookOpen } from 'lucide-react';sss
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate, Link } from 'react-router';
 import {
   LayoutDashboard, Users, Briefcase, BarChart2, CreditCard,
-  Palette, FileText, LogOut, GraduationCap, ChevronLeft, Menu, MessageSquare
+  Palette, FileText, LogOut, GraduationCap, ChevronLeft, Menu, MessageSquare, BookOpen
 } from 'lucide-react';
 import { useAuth } from '../shared/AuthContext';
 import { useBranding } from '../shared/BrandingContext';
@@ -15,6 +14,7 @@ const NAV = [
   { to: '/admin/analytics', label: 'Analytics', icon: BarChart2 },
   { to: '/admin/payments', label: 'Payments', icon: CreditCard },
   { to: '/admin/academic-queries', label: 'Academic Queries', icon: MessageSquare },
+  { to: '/admin/programmes', label: 'Programmes', icon: BookOpen },
   { to: '/admin/branding', label: 'System Branding', icon: Palette },
   { to: '/admin/audit', label: 'Audit Logs', icon: FileText },
 ];
@@ -51,7 +51,6 @@ export function AdminLayout() {
       </div>
 
       {/* Nav */}
-      { to: '/admin/programmes', label: 'Programmes', icon: BookOpen },
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {NAV.map(({ to, label, icon: Icon, end }) => (
           <NavLink key={to} to={to} end={end}
