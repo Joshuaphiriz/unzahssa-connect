@@ -1,3 +1,4 @@
+import { ProgrammesManagement } from './components/admin/ProgrammesManagement';
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router';
 import { AuthProvider, useAuth } from './components/shared/AuthContext';
@@ -96,6 +97,7 @@ function AppRoutes() {
         {/* Admin routes */}
         <Route element={<RequireAdmin><AdminLayout /></RequireAdmin>}>
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/programmes" element={<ProgrammesManagement />} />
           <Route path="/admin/students" element={<StudentRegistry />} />
           <Route path="/admin/internships" element={<InternshipReviews />} />
           <Route path="/admin/analytics" element={<Analytics />} />

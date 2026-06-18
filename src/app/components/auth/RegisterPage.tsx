@@ -1,17 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { GraduationCap, User, Mail, Lock, Eye, EyeOff, IdCard, BookOpen, Calendar } from 'lucide-react';
-import { api } from '../shared/api';   // ✅ correct import (no /TS/app)
+import { api } from '../shared/api';
 import { useAuth } from '../shared/AuthContext';
 import { useBranding } from '../shared/BrandingContext';
 
 const STEPS = ['Personal Details', 'Academic Info', 'Security'];
-const PROGRAMMES = [
-  'BA History', 'BA Sociology', 'BA Political Science', 'BA Philosophy',
-  'BA Mass Communication', 'BA Social Work', 'BA Psychology', 'BA Economics',
-  'BA English', 'BA Linguistics', 'BA Geography', 'BA Development Studies',
-  'MA History', 'MA Sociology', 'PhD Political Science',
-];
 
 export function RegisterPage() {
   const { signIn } = useAuth();
@@ -22,6 +16,7 @@ export function RegisterPage() {
   const [error, setError] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [availableProgrammes, setAvailableProgrammes] = useState<string[]>([]);
 
   const [form, setForm] = useState({
     name: '', email: '', studentId: '',
@@ -30,6 +25,12 @@ export function RegisterPage() {
   });
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+
+  useEffect(() => {
+    api('/programmes', { method: 'GET' })
+      .then(setAvailableProgrammes)
+      .catch(console.error);
+  }, []);
 
   const nextStep = (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,7 +132,7 @@ export function RegisterPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1.5">UNZA Email Address</label>
+                  <label className="block text-sm font-medium mb-1.5">Email Address</label>
                   <div className="relative">
                     <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <input type="email" value={form.email} onChange={e => set('email', e.target.value)} required
@@ -139,6 +140,7 @@ export function RegisterPage() {
                       className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border bg-input-background text-sm focus:outline-none focus:ring-2"
                     />
                   </div>
+                  <p className="text-xs text-red-500 mt-0.5">Email cannot be changed once used</p>
                 </div>
               </>
             )}
@@ -165,7 +167,7 @@ export function RegisterPage() {
                     <select value={form.programme} onChange={e => set('programme', e.target.value)} required
                       className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border bg-input-background text-sm focus:outline-none appearance-none">
                       <option value="">Select programme…</option>
-                      {PROGRAMMES.map(p => <option key={p} value={p}>{p}</option>)}
+                      {availableProgrammes.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </div>
                 </div>

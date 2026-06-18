@@ -1,3 +1,4 @@
+import { LayoutDashboard, Users, Briefcase, BarChart2, CreditCard, Palette, FileText, LogOut, GraduationCap, ChevronLeft, Menu, MessageSquare, BookOpen } from 'lucide-react';sss
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate, Link } from 'react-router';
 import {
@@ -50,6 +51,7 @@ export function AdminLayout() {
       </div>
 
       {/* Nav */}
+      { to: '/admin/programmes', label: 'Programmes', icon: BookOpen },
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {NAV.map(({ to, label, icon: Icon, end }) => (
           <NavLink key={to} to={to} end={end}
