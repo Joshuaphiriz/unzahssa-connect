@@ -66,41 +66,27 @@ export function Affiliations() {
     return `${prefix}-${timestamp}-${random}`;
   };
 
-  // ========== RECEIPT DOWNLOAD WITH LOGO (OPTION B) ==========
-  const downloadReceipt = async (payment: any) => {
+  const downloadReceipt = (payment: any) => {
     const receiptNo = generateReceiptNumber();
     const doc = new jsPDF();
 
-    // Try to load logo from public folder and convert to base64
-    try {
-      const response = await fetch('/unzahssa-logo.jpg');
-      if (response.ok) {
-        const blob = await response.blob();
-        const reader = new FileReader();
-        await new Promise((resolve, reject) => {
-          reader.onloadend = resolve;
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
-        const base64data = reader.result as string;
-        // Add logo to top right corner
-        doc.addImage(base64data, 'JPEG', 160, 8, 35, 20);
-      } else {
-        console.log('Logo file not found, continuing without it');
-      }
-    } catch (e) {
-      console.log('Logo loading failed, continuing without it:', e);
-    }
-
-    // Receipt content
-    doc.setFontSize(18);
-    doc.text('UNZAHSSA Connect – Payment Receipt', 14, 20);
+    // Brand header (text-based logo)
+    doc.setFontSize(22);
+    doc.setTextColor('#1E3A5F');
+    doc.text('UNZAHSSA', 14, 20);
     doc.setFontSize(10);
-    doc.text(`Receipt No: ${receiptNo}`, 14, 30);
-    doc.text(`Date: ${new Date().toLocaleString()}`, 14, 36);
-    doc.text(`Student: ${payment.userName} (${payment.userEmail})`, 14, 42);
-    doc.text(`Student ID: ${payment.studentId || 'N/A'}`, 14, 48);
-    doc.text(`Programme: ${payment.programme || 'N/A'}`, 14, 54);
+    doc.setTextColor('#D4A33D');
+    doc.text('CONNECT', 14, 28);
+    doc.setTextColor('#000000');
+
+    doc.setFontSize(18);
+    doc.text('Payment Receipt', 14, 40);
+    doc.setFontSize(10);
+    doc.text(`Receipt No: ${receiptNo}`, 14, 50);
+    doc.text(`Date: ${new Date().toLocaleString()}`, 14, 56);
+    doc.text(`Student: ${payment.userName} (${payment.userEmail})`, 14, 62);
+    doc.text(`Student ID: ${payment.studentId || 'N/A'}`, 14, 68);
+    doc.text(`Programme: ${payment.programme || 'N/A'}`, 14, 74);
     
     autoTable(doc, {
       head: [['Description', 'Amount']],
@@ -109,10 +95,10 @@ export function Affiliations() {
         ['Reference', payment.reference],
         ['Payment Method', payment.method],
       ],
-      startY: 62,
+      startY: 82,
     });
     
-    const finalY = (doc as any).lastAutoTable?.finalY || 70;
+    const finalY = (doc as any).lastAutoTable?.finalY || 90;
     doc.text('Thank you for affiliating with UNZAHSSA.', 14, finalY + 10);
     doc.save(`receipt_${receiptNo}.pdf`);
   };
