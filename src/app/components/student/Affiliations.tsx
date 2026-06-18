@@ -66,18 +66,33 @@ export function Affiliations() {
     return `${prefix}-${timestamp}-${random}`;
   };
 
-  const downloadReceipt = (payment: any) => {
+  // ========== RECEIPT DOWNLOAD WITH LOGO (OPTION B) ==========
+  const downloadReceipt = async (payment: any) => {
     const receiptNo = generateReceiptNumber();
     const doc = new jsPDF();
 
-    // Add logo (UNZAHSSA logo) – top right corner
+    // Try to load logo from public folder and convert to base64
     try {
-      const logoUrl = '/unzahssa-logo.jpg';
-      doc.addImage(logoUrl, 'JPEG', 160, 10, 35, 20);
+      const response = await fetch('/unzahssa-logo.jpg');
+      if (response.ok) {
+        const blob = await response.blob();
+        const reader = new FileReader();
+        await new Promise((resolve, reject) => {
+          reader.onloadend = resolve;
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        const base64data = reader.result as string;
+        // Add logo to top right corner
+        doc.addImage(base64data, 'JPEG', 160, 8, 35, 20);
+      } else {
+        console.log('Logo file not found, continuing without it');
+      }
     } catch (e) {
-      console.log('Logo not found, continuing without it');
+      console.log('Logo loading failed, continuing without it:', e);
     }
 
+    // Receipt content
     doc.setFontSize(18);
     doc.text('UNZAHSSA Connect – Payment Receipt', 14, 20);
     doc.setFontSize(10);
@@ -86,6 +101,7 @@ export function Affiliations() {
     doc.text(`Student: ${payment.userName} (${payment.userEmail})`, 14, 42);
     doc.text(`Student ID: ${payment.studentId || 'N/A'}`, 14, 48);
     doc.text(`Programme: ${payment.programme || 'N/A'}`, 14, 54);
+    
     autoTable(doc, {
       head: [['Description', 'Amount']],
       body: [
@@ -95,6 +111,7 @@ export function Affiliations() {
       ],
       startY: 62,
     });
+    
     const finalY = (doc as any).lastAutoTable?.finalY || 70;
     doc.text('Thank you for affiliating with UNZAHSSA.', 14, finalY + 10);
     doc.save(`receipt_${receiptNo}.pdf`);
