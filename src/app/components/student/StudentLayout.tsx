@@ -63,6 +63,7 @@ export function StudentLayout() {
           </nav>
 
           {/* Right side */}
+<<<<<<< HEAD
 <div className="flex items-center gap-3">
   {/* Admin button (if admin) */}
   {user && (
@@ -91,6 +92,26 @@ export function StudentLayout() {
     {menuOpen ? <X size={20} /> : <Menu size={20} />}
   </button>
 </div>
+=======
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold" style={{ background: '#D4A33D' }}>
+                {user?.user_metadata?.name?.[0]?.toUpperCase() || '?'}
+              </div>
+              <span className="text-sm font-medium text-foreground hidden md:block max-w-[120px] truncate">
+                {user?.user_metadata?.name || user?.email}
+              </span>
+            </div>
+            <button onClick={handleSignOut} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-red-50 transition-all hidden sm:flex">
+              <LogOut size={15} />
+              <span className="hidden md:inline">Sign out</span>
+            </button>
+            {/* Mobile hamburger */}
+            <button onClick={() => setMenuOpen(!menuOpen)} className="lg:hidden p-2 rounded-lg hover:bg-muted transition-colors">
+              {menuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+          </div>
+>>>>>>> 554be6251a0cba0d16ff91e752dc09bfea5d3e6a
         </div>
 
         {/* Mobile menu */}
@@ -105,12 +126,15 @@ export function StudentLayout() {
                 <Icon size={16} />{label}
               </NavLink>
             ))}
+<<<<<<< HEAD
             {/* Admin link for mobile */}
 {user && (
   <Link to="/admin" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:bg-muted transition-all">
     ← Back to Admin
   </Link>
 )}
+=======
+>>>>>>> 554be6251a0cba0d16ff91e752dc09bfea5d3e6a
             <button onClick={handleSignOut} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-destructive hover:bg-red-50 transition-all">
               <LogOut size={16} />Sign out
             </button>
