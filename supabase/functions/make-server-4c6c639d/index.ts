@@ -381,28 +381,43 @@ app.put("/make-server-4c6c639d/queries/:id", async (c) => {
 });
 
 // Internship
+// Get all user's internship applications
 app.get("/make-server-4c6c639d/internship/my", async (c) => {
   const user = await getUser(c);
   if (!user) return c.json({ error: 'Unauthorized' }, 401);
-  return c.json((await kv.get(`internship:${user.id}`)) || null);
+  const apps = await kv.getByPrefix(`internship:${user.id}:`);
+  return c.json(apps.filter(Boolean).sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()));
 });
 
+// Create or update internship application
 app.post("/make-server-4c6c639d/internship", async (c) => {
   const user = await getUser(c);
   if (!user) return c.json({ error: 'Unauthorized' }, 401);
   const body = await c.req.json();
-  const existing = (await kv.get(`internship:${user.id}`)) || {
-    userId: user.id, userEmail: user.email,
+  
+  // If submitting, create new app. Otherwise, update draft
+  let appId = body.appId || `app_${Date.now()}`;
+  const key = `internship:${user.id}:${appId}`;
+  
+  const existing = (await kv.get(key)) || {
+    appId,
+    userId: user.id,
+    userEmail: user.email,
     userName: user.user_metadata?.name || user.email,
-    status: 'draft', submittedAt: null,
+    status: 'draft',
+    createdAt: new Date().toISOString(),
+    submittedAt: null,
   };
+  
   const updated = { ...existing, ...body, updatedAt: new Date().toISOString() };
   if (body.submit) { updated.status = 'pending'; updated.submittedAt = new Date().toISOString(); }
-  await kv.set(`internship:${user.id}`, updated);
-  if (body.submit) await logAudit(user.id, user.email || '', 'SUBMIT_INTERNSHIP', 'Internship application submitted');
+  
+  await kv.set(key, updated);
+  if (body.submit) await logAudit(user.id, user.email || '', 'SUBMIT_INTERNSHIP', `Internship application ${appId} submitted`);
   return c.json(updated);
 });
 
+// Get all internship applications (admin)
 app.get("/make-server-4c6c639d/internship/all", async (c) => {
   const user = await getUser(c);
   if (!user || !(await checkAdmin(user.email || ''))) return c.json({ error: 'Forbidden' }, 403);
@@ -410,16 +425,20 @@ app.get("/make-server-4c6c639d/internship/all", async (c) => {
   return c.json(all.filter(Boolean).sort((a: any, b: any) => new Date(b.submittedAt || 0).getTime() - new Date(a.submittedAt || 0).getTime()));
 });
 
-app.put("/make-server-4c6c639d/internship/:userId", async (c) => {
+// Update internship application status (admin)
+app.put("/make-server-4c6c639d/internship/:userId/:appId", async (c) => {
   const user = await getUser(c);
   if (!user || !(await checkAdmin(user.email || ''))) return c.json({ error: 'Forbidden' }, 403);
   const userId = c.req.param('userId');
-  const existing = await kv.get(`internship:${userId}`);
+  const appId = c.req.param('appId');
+  const key = `internship:${userId}:${appId}`;
+  
+  const existing = await kv.get(key);
   if (!existing) return c.json({ error: 'Not found' }, 404);
   const { status, reviewNotes } = await c.req.json();
   const updated = { ...existing, status, reviewNotes, reviewedAt: new Date().toISOString(), reviewedBy: user.email };
-  await kv.set(`internship:${userId}`, updated);
-  await logAudit(user.id, user.email || '', 'REVIEW_INTERNSHIP', `Internship for ${userId} → ${status}`);
+  await kv.set(key, updated);
+  await logAudit(user.id, user.email || '', 'REVIEW_INTERNSHIP', `Internship ${appId} for ${userId} → ${status}`);
   return c.json(updated);
 });
 
