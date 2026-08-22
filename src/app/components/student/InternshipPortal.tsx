@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import {
   ChevronRight, ChevronLeft, Check, FileText, Upload, X,
   Plus, Trash2, Eye, Download, Lightbulb, User as UserIcon,
-  GraduationCap, Briefcase, Star, Globe, BookOpen
+  GraduationCap, Briefcase, Star, Globe, BookOpen, Sparkles, ArrowLeft
 } from 'lucide-react';
 import { useAuth } from '../shared/AuthContext';
 import { api, apiForm } from '../shared/api';
