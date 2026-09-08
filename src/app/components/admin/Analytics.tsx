@@ -1,90 +1,180 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../shared/AuthContext';
-import { api } from '../shared/api';
-import { PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
+import { useEffect, useState } from "react";
+import { StudentProfiles, Payments, AcademicQueries, InternshipApplications } from "../../lib/data";
+import type { StudentProfile, Payment, AcademicQuery, InternshipApplication } from "../../lib/types";
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  LineChart, Line, CartesianGrid, PieChart, Pie, Cell, Legend,
+} from "recharts";
+
+const COLOURS = ["hsl(220,60%,35%)", "hsl(40,70%,55%)", "hsl(160,50%,45%)", "hsl(280,50%,55%)", "hsl(0,60%,50%)"];
 
 export function Analytics() {
-  const { token } = useAuth();
-  const [students, setStudents] = useState([]);
-  const [payments, setPayments] = useState([]);
-  const [programmeData, setProgrammeData] = useState([]);
+  const [profiles, setProfiles] = useState<StudentProfile[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [queries, setQueries] = useState<AcademicQuery[]>([]);
+  const [apps, setApps] = useState<InternshipApplication[]>([]);
 
   useEffect(() => {
-    if (!token) return;
-    Promise.all([api('/students', {}, token), api('/payments', {}, token)])
-      .then(([s, p]) => {
-        setStudents(s);
-        setPayments(p);
-        const progMap = new Map();
-        s.forEach((stu: any) => {
-          const prog = stu.programme;
-          if (!progMap.has(prog)) progMap.set(prog, { students: 0, affiliated: 0 });
-          const entry = progMap.get(prog);
-          entry.students++;
-          if (stu.affiliationStatus === 'affiliated') entry.affiliated++;
-        });
-        setProgrammeData(Array.from(progMap.entries()).map(([name, data]) => ({ name, ...data, rate: ((data.affiliated / data.students) * 100).toFixed(0) })));
-      })
-      .catch(console.error);
-  }, [token]);
+    let active = true;
+    Promise.all([StudentProfiles.list(), Payments.list(), AcademicQueries.list(), InternshipApplications.list()]).then(
+      ([p, pay, q, a]) => {
+        if (!active) return;
+        setProfiles(p);
+        setPayments(pay);
+        setQueries(q);
+        setApps(a);
+      },
+    );
+    return () => { active = false; };
+  }, []);
 
-  const totalRevenue = payments.reduce((sum: number, p: any) => sum + (p.status === 'approved' ? p.amount : 0), 0);
-  const statusData = [
-    { name: 'Pending', value: payments.filter((p: any) => p.status === 'pending').length },
-    { name: 'Approved', value: payments.filter((p: any) => p.status === 'approved').length },
-    { name: 'Placed', value: students.filter((s: any) => s.internshipStatus === 'placed').length },
-  ];
-  const COLORS = ['#D4A33D', '#1E3A5F', '#2E7D55'];
+  const placedCount = apps.filter(a => a.status === "placed").length;
 
-  const downloadCSV = () => {
-    const headers = ['Name', 'Student ID', 'Programme', 'Year', 'Affiliation Status'];
-    const rows = students.map((s: any) => [s.name, s.studentId, s.programme, s.yearOfStudy, s.affiliationStatus]);
-    const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'students.csv'; a.click();
-    URL.revokeObjectURL(url);
-  };
+  const yearData = ["1st Year","2nd Year","3rd Year","4th Year"].map(y => ({
+    year: y,
+    students: profiles.filter(p => p.year_of_study === y).length,
+    affiliated: profiles.filter(p => p.year_of_study === y && p.affiliation).length,
+    placed: apps.filter(a => a.student?.year_of_study === y && a.status === "placed").length,
+  }));
+
+  const programmes = [...new Set(profiles.map(p => p.academic_programme))].filter(Boolean);
+  const progData = programmes.map(prog => ({
+    programme: prog.length > 18 ? prog.slice(0,18)+"…" : prog,
+    students: profiles.filter(p => p.academic_programme === prog).length,
+    affiliated: profiles.filter(p => p.academic_programme === prog && p.affiliation).length,
+  })).sort((a,b) => b.students - a.students);
+
+  const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const paymentTrend = monthNames.map((m, i) => ({
+    month: m,
+    revenue: payments.filter(p => p.status === "confirmed" && new Date(p.created_date).getMonth() === i).reduce((s,p) => s+p.amount, 0),
+    count: payments.filter(p => new Date(p.created_date).getMonth() === i).length,
+  }));
+
+  const statusBreakdown = ["pending","under_review","approved","placed","rejected"].map(s => ({
+    name: s.replace("_"," "), value: apps.filter(a => a.status === s).length
+  })).filter(d => d.value > 0);
+
+  const queryTrend = monthNames.map((m, i) => ({
+    month: m,
+    open: queries.filter(q => q.status === "open" && new Date(q.created_date).getMonth() === i).length,
+    resolved: queries.filter(q => q.status === "resolved" && new Date(q.created_date).getMonth() === i).length,
+  }));
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>Analytics</h1>
-      <p className="text-gray-500 mb-6">Detailed breakdown of student and programme metrics.</p>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-xl shadow-sm border"><p className="text-sm text-gray-500">Total Registrations</p><p className="text-2xl font-bold">{students.length}</p></div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border"><p className="text-sm text-gray-500">Total Affiliated</p><p className="text-2xl font-bold">{students.filter((s: any) => s.affiliationStatus === 'affiliated').length}</p></div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border"><p className="text-sm text-gray-500">Placements Made</p><p className="text-2xl font-bold">{students.filter((s: any) => s.internshipStatus === 'placed').length}</p></div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border"><p className="text-sm text-gray-500">Total Revenue (ZMW)</p><p className="text-2xl font-bold">{totalRevenue}</p></div>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-foreground" style={{ fontFamily: "var(--font-display)" }}>Analytics</h1>
+        <p className="text-muted-foreground text-sm mt-1">Detailed breakdown of student and programme metrics.</p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6 mb-6">
-        <div className="bg-white p-4 rounded-xl shadow-sm border">
-          <h2 className="text-lg font-semibold mb-2">Affiliation Status</h2>
-          <PieChart width={300} height={300}>
-            <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-              {statusData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-            </Pie>
-            <Tooltip />
-            <Legend />
-          </PieChart>
+      {/* Summary row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          ["Total Registrations", profiles.length, "bg-blue-50 border-l-blue-500"],
+          ["Total Affiliated", profiles.filter(p=>p.affiliation).length, "bg-purple-50 border-l-purple-500"],
+          ["Placements Made", placedCount, "bg-green-50 border-l-green-500"],
+          ["Total Revenue (ZMW)", payments.filter(p=>p.status==="confirmed").reduce((s,p)=>s+p.amount,0).toLocaleString(), "bg-amber-50 border-l-amber-500"],
+        ].map(([label,value,cls]) => (
+          <div key={label as string} className={`rounded-lg border border-l-4 p-4 ${cls}`}>
+            <p className="text-muted-foreground text-xs mb-1">{label}</p>
+            <p className="text-foreground font-bold text-2xl">{value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Row 1 */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        <div className="bg-card rounded-xl border border-border p-5">
+          <h3 className="font-semibold text-foreground mb-4">Registrations by Year of Study</h3>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={yearData}>
+              <XAxis dataKey="year" tick={{fontSize:11}} />
+              <YAxis tick={{fontSize:11}} />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="students" name="Registered" fill="hsl(220,60%,35%)" radius={[3,3,0,0]} />
+              <Bar dataKey="affiliated" name="Affiliated" fill="hsl(40,70%,55%)" radius={[3,3,0,0]} />
+              <Bar dataKey="placed" name="Placed" fill="hsl(160,50%,45%)" radius={[3,3,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border">
-          <h2 className="text-lg font-semibold mb-2">Programme Breakdown</h2>
+
+        <div className="bg-card rounded-xl border border-border p-5">
+          <h3 className="font-semibold text-foreground mb-4">Status Breakdown</h3>
+          <ResponsiveContainer width="100%" height={220}>
+            <PieChart>
+              <Pie data={statusBreakdown} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({name,percent})=>`${name} ${(percent*100).toFixed(0)}%`} labelLine={false}>
+                {statusBreakdown.map((_,i) => <Cell key={i} fill={COLOURS[i%COLOURS.length]} />)}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Row 2 */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        <div className="bg-card rounded-xl border border-border p-5">
+          <h3 className="font-semibold text-foreground mb-4">Monthly Revenue (ZMW)</h3>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={paymentTrend}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,20%,88%)" />
+              <XAxis dataKey="month" tick={{fontSize:11}} />
+              <YAxis tick={{fontSize:11}} />
+              <Tooltip />
+              <Line type="monotone" dataKey="revenue" name="Revenue (ZMW)" stroke="hsl(220,60%,35%)" strokeWidth={2} dot={{ r: 3 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="bg-card rounded-xl border border-border p-5">
+          <h3 className="font-semibold text-foreground mb-4">Academic Queries — Monthly Trend</h3>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={queryTrend}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,20%,88%)" />
+              <XAxis dataKey="month" tick={{fontSize:11}} />
+              <YAxis tick={{fontSize:11}} />
+              <Tooltip />
+              <Legend />
+              <Line type="monotone" dataKey="open" name="Open" stroke="hsl(40,70%,55%)" strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="resolved" name="Resolved" stroke="hsl(160,50%,45%)" strokeWidth={2} dot={{ r: 3 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Programme breakdown table */}
+      <div className="bg-card rounded-xl border border-border overflow-hidden">
+        <div className="p-5 border-b border-border">
+          <h3 className="font-semibold text-foreground">Programme Breakdown</h3>
+        </div>
+        <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead><tr className="border-b"><th className="text-left py-2">Programme</th><th>Students</th><th>Affiliated</th><th>Rate</th></tr></thead>
+            <thead className="bg-muted">
+              <tr>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Programme</th>
+                <th className="text-right px-4 py-3 font-medium text-muted-foreground">Students</th>
+                <th className="text-right px-4 py-3 font-medium text-muted-foreground">Affiliated</th>
+                <th className="text-right px-4 py-3 font-medium text-muted-foreground">Affil. Rate</th>
+              </tr>
+            </thead>
             <tbody>
-              {programmeData.map(p => (
-                <tr key={p.name} className="border-b"><td className="py-2">{p.name}</td><td>{p.students}</td><td>{p.affiliated}</td><td>{p.rate}%</td></tr>
+              {progData.map(p => (
+                <tr key={p.programme} className="border-t border-border hover:bg-muted/40 transition-colors">
+                  <td className="px-4 py-3 text-foreground">{p.programme}</td>
+                  <td className="px-4 py-3 text-right text-foreground font-medium">{p.students}</td>
+                  <td className="px-4 py-3 text-right text-foreground">{p.affiliated}</td>
+                  <td className="px-4 py-3 text-right">
+                    <span className={`text-xs font-medium ${p.students > 0 && p.affiliated/p.students >= 0.6 ? "text-green-600" : "text-muted-foreground"}`}>
+                      {p.students > 0 ? `${Math.round(p.affiliated/p.students*100)}%` : "—"}
+                    </span>
+                  </td>
+                </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </div>
-
-      <div>
-        <button onClick={downloadCSV} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Download CSV Report</button>
       </div>
     </div>
   );

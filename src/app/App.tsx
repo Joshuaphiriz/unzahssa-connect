@@ -1,125 +1,168 @@
-import { ProgrammesManagement } from './components/admin/ProgrammesManagement';
-import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router';
-import { AuthProvider, useAuth } from './components/shared/AuthContext';
-import { BrandingProvider } from './components/shared/BrandingContext';
-import { api } from './components/shared/api';
+import React from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router";
+import { AuthProvider, useAuth } from "./lib/auth";
+
+// Layouts
+import { StudentLayout } from "./components/layouts/StudentLayout";
+import { AdminLayout } from "./components/layouts/AdminLayout";
+
+// Shared
+import { ProtectedRoute } from "./components/shared/ProtectedRoute";
+import { BrandingProvider } from "./components/shared/BrandingContext";
+import { AiAssistantProvider } from "./components/shared/AiAssistant";
 
 // Auth pages
-import { LoginPage } from './components/auth/LoginPage';
-import { RegisterPage } from './components/auth/RegisterPage';
+import { LoginPage } from "./components/auth/LoginPage";
+import { RegisterPage } from "./components/auth/RegisterPage";
+import { ForgotPasswordPage } from "./components/auth/ForgotPasswordPage";
+import { ResetPasswordPage } from "./components/auth/ResetPasswordPage";
 
 // Student pages
-import { StudentLayout } from './components/student/StudentLayout';
-import { Dashboard } from './components/student/Dashboard';
-import { Forum } from './components/student/Forum';
-import { Affiliations } from './components/student/Affiliations';
-import { AcademicQuery } from './components/student/AcademicQuery';
-import { InternshipLanding } from './components/student/InternshipLanding';
-import { InternshipPortal } from './components/student/InternshipPortal';
-import { Profile } from './components/student/Profile';
+import { Dashboard } from "./components/student/Dashboard";
+import { Forum } from "./components/student/Forum";
+import { Affiliations } from "./components/student/Affiliations";
+import { AcademicQueryPage } from "./components/student/AcademicQueryPage";
+import { InternshipLanding } from "./components/student/InternshipLanding";
+import { InternshipPortal } from "./components/student/InternshipPortal";
+import { Profile } from "./components/student/Profile";
 
 // Admin pages
-import { AdminLayout } from './components/admin/AdminLayout';
-import { AdminDashboard } from './components/admin/AdminDashboard';
-import { StudentRegistry } from './components/admin/StudentRegistry';
-import { InternshipReviews } from './components/admin/InternshipReviews';
-import { Analytics } from './components/admin/Analytics';
-import { PaymentsManagement } from './components/admin/PaymentsManagement';
-import { SystemBranding } from './components/admin/SystemBranding';
-import { AuditLogs } from './components/admin/AuditLogs';
-import { AcademicQueries } from './components/admin/AcademicQueries';
+import { AdminDashboard } from "./components/admin/AdminDashboard";
+import { StudentRegistry } from "./components/admin/StudentRegistry";
+import { InternshipReviews } from "./components/admin/InternshipReviews";
+import { Analytics } from "./components/admin/Analytics";
+import { AuditLogPage } from "./components/admin/AuditLogPage";
+import { Payments } from "./components/admin/Payments";
+import { AcademicQueries } from "./components/admin/AcademicQueries";
+import { Programmes } from "./components/admin/Programmes";
+import { SystemBranding } from "./components/admin/SystemBranding";
+import { AdminUsers } from "./components/admin/AdminUsers";
 
-function Loader() {
+function FullScreenLoader() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <div className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin mx-auto mb-3" style={{ borderColor: '#1E3A5F', borderTopColor: 'transparent' }} />
-        <p className="text-sm text-muted-foreground">Loading…</p>
-      </div>
+      <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
     </div>
   );
 }
 
-function RequireAuth({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-  const location = useLocation();
-  if (loading) return <Loader />;
-  if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
-  return <>{children}</>;
-}
-
-function RequireAdmin({ children }: { children: React.ReactNode }) {
-  const { user, loading, isAdmin } = useAuth();
-  const location = useLocation();
-  if (loading) return <Loader />;
-  if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
-  if (!isAdmin) return <Navigate to="/dashboard" replace />;
-  return <>{children}</>;
-}
-
-function SmartRedirect() {
-  const { user, loading, isAdmin } = useAuth();
-  if (loading) return <Loader />;
-  if (!user) return <Navigate to="/login" replace />;
-  if (isAdmin) return <Navigate to="/admin" replace />;
-  return <Navigate to="/dashboard" replace />;
-}
-
-function SeedOnMount() {
-  useEffect(() => {
-    api('/seed', { method: 'POST' }).catch(() => {});
-  }, []);
-  return null;
-}
-
 function AppRoutes() {
+  const { user, isAdmin, loading } = useAuth();
+
+  if (loading) return <FullScreenLoader />;
+
   return (
-    <>
-      <SeedOnMount />
-      <Routes>
-        {/* Public */}
-        <Route path="/" element={<SmartRedirect />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+    <Routes>
+      {/* Auth routes */}
+      <Route path="/login" element={user ? <Navigate to={isAdmin ? "/admin/dashboard" : "/"} replace /> : <LoginPage />} />
+      <Route path="/register" element={user ? <Navigate to="/" replace /> : <RegisterPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-        {/* Student routes */}
-        <Route element={<RequireAuth><StudentLayout /></RequireAuth>}>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/forum" element={<Forum />} />
-          <Route path="/affiliations" element={<Affiliations />} />
-          <Route path="/academic-query" element={<AcademicQuery />} />
-          <Route path="/internship" element={<InternshipLanding />} />
-          <Route path="/internship/portal" element={<InternshipPortal />} />
-          <Route path="/profile" element={<Profile />} />
-        </Route>
+      {/* Student routes */}
+      <Route path="/" element={
+        <ProtectedRoute>
+          <StudentLayout><Dashboard /></StudentLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/forum" element={
+        <ProtectedRoute>
+          <StudentLayout><Forum /></StudentLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/affiliations" element={
+        <ProtectedRoute>
+          <StudentLayout><Affiliations /></StudentLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/academic-query" element={
+        <ProtectedRoute>
+          <StudentLayout><AcademicQueryPage /></StudentLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/internship" element={
+        <ProtectedRoute>
+          <StudentLayout><InternshipLanding /></StudentLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/internship/portal" element={
+        <ProtectedRoute>
+          <StudentLayout><InternshipPortal /></StudentLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/profile" element={
+        <ProtectedRoute>
+          <StudentLayout><Profile /></StudentLayout>
+        </ProtectedRoute>
+      } />
 
-        {/* Admin routes */}
-        <Route element={<RequireAdmin><AdminLayout /></RequireAdmin>}>
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/programmes" element={<ProgrammesManagement />} />
-          <Route path="/admin/students" element={<StudentRegistry />} />
-          <Route path="/admin/internships" element={<InternshipReviews />} />
-          <Route path="/admin/analytics" element={<Analytics />} />
-          <Route path="/admin/payments" element={<PaymentsManagement />} />
-          <Route path="/admin/branding" element={<SystemBranding />} />
-          <Route path="/admin/audit" element={<AuditLogs />} />
-          <Route path="/admin/academic-queries" element={<AcademicQueries />} />
-        </Route>
+      {/* Admin routes */}
+      <Route path="/admin/dashboard" element={
+        <ProtectedRoute adminOnly>
+          <AdminLayout><AdminDashboard /></AdminLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/registry" element={
+        <ProtectedRoute adminOnly>
+          <AdminLayout><StudentRegistry /></AdminLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/reviews" element={
+        <ProtectedRoute adminOnly>
+          <AdminLayout><InternshipReviews /></AdminLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/analytics" element={
+        <ProtectedRoute adminOnly>
+          <AdminLayout><Analytics /></AdminLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/payments" element={
+        <ProtectedRoute adminOnly>
+          <AdminLayout><Payments /></AdminLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/academic-queries" element={
+        <ProtectedRoute adminOnly>
+          <AdminLayout><AcademicQueries /></AdminLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/programmes" element={
+        <ProtectedRoute adminOnly>
+          <AdminLayout><Programmes /></AdminLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/branding" element={
+        <ProtectedRoute adminOnly>
+          <AdminLayout><SystemBranding /></AdminLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/users" element={
+        <ProtectedRoute adminOnly>
+          <AdminLayout><AdminUsers /></AdminLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/audit-log" element={
+        <ProtectedRoute adminOnly>
+          <AdminLayout><AuditLogPage /></AdminLayout>
+        </ProtectedRoute>
+      } />
 
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </>
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
 
 export default function App() {
   return (
     <BrowserRouter>
+      {/* MARKER-MAKE-KIT-INVOKED */}
       <AuthProvider>
         <BrandingProvider>
-          <AppRoutes />
+          <AiAssistantProvider>
+            <AppRoutes />
+          </AiAssistantProvider>
         </BrandingProvider>
       </AuthProvider>
     </BrowserRouter>

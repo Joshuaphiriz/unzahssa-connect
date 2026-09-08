@@ -1,175 +1,179 @@
-import { useEffect, useState } from 'react';
-import { Save, Check, GraduationCap, Eye } from 'lucide-react';
-import { useAuth } from '../shared/AuthContext';
-import { useBranding } from '../shared/BrandingContext';
-import { api } from '../shared/api';
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../../lib/auth";
+import { BrandingStore, DEFAULT_BRANDING, AuditLogs } from "../../lib/data";
+import { useBranding } from "../shared/BrandingContext";
+import type { Branding } from "../../lib/types";
+import { Save, RotateCcw, Eye, GraduationCap } from "lucide-react";
 
 export function SystemBranding() {
-  const { token } = useAuth();
-  const { branding, refresh } = useBranding();
-  const [form, setForm] = useState({ ...branding });
-  const [saving, setSaving] = useState(false);
+  const { user } = useAuth();
+  const { refresh } = useBranding();
+  const [form, setForm] = useState<Branding>(DEFAULT_BRANDING);
   const [saved, setSaved] = useState(false);
-  const [preview, setPreview] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [preview, setPreview] = useState(true);
 
-  useEffect(() => { setForm({ ...branding }); }, [branding]);
+  useEffect(() => {
+    let active = true;
+    BrandingStore.get().then(b => { if (active) setForm(b); });
+    return () => { active = false; };
+  }, []);
 
-  const set = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }));
+  const set = (k: keyof Branding) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const v = e.target.type === "number" ? Number(e.target.value) : e.target.value;
+    setForm(f => ({ ...f, [k]: v }));
+  };
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
-      await api('/branding', { method: 'PUT', body: JSON.stringify(form) }, token);
+      await BrandingStore.save(form);
       await refresh();
+      if (user) await AuditLogs.create({
+        user_name: user.name, user_email: user.email,
+        action: "BRANDING_UPDATE", details: "Updated system branding settings", page: "/admin/branding",
+      });
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
-    } catch (err: any) { alert(err.message); }
-    setSaving(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const reset = async () => {
+    if (!confirm("Reset branding to defaults?")) return;
+    setForm(await BrandingStore.reset());
+    await refresh();
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+    <div className="space-y-6">
+      <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold" style={{ fontFamily: 'Playfair Display, serif', color: '#1E3A5F' }}>System Branding</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Customise the portal appearance for your association</p>
+          <h1 className="text-foreground" style={{ fontFamily: "var(--font-display)" }}>System Branding</h1>
+          <p className="text-muted-foreground text-sm mt-1">Customise how the portal presents your association.</p>
         </div>
-        <button onClick={() => setPreview(!preview)} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-sm font-medium hover:bg-muted transition-colors">
-          <Eye size={14} /> {preview ? 'Hide' : 'Live'} Preview
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setPreview(v => !v)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-foreground text-sm hover:bg-muted transition-colors">
+            <Eye className="w-4 h-4" /> {preview ? "Hide" : "Show"} Preview
+          </button>
+          <button onClick={reset}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-foreground text-sm hover:bg-muted transition-colors">
+            <RotateCcw className="w-4 h-4" /> Reset
+          </button>
+        </div>
       </div>
 
-      <div className={`grid gap-6 ${preview ? 'lg:grid-cols-2' : ''}`}>
-        {/* Form */}
-        <form onSubmit={handleSave} className="space-y-4">
-          <div className="bg-white rounded-2xl border border-border p-5">
-            <h2 className="font-bold text-sm mb-4" style={{ color: '#1E3A5F' }}>Association Identity</h2>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium mb-1.5">Portal Name</label>
-                <input value={form.name} onChange={e => set('name', e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-border bg-input-background text-sm focus:outline-none" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1.5">Full Association Name</label>
-                <input value={form.associationName} onChange={e => set('associationName', e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-border bg-input-background text-sm focus:outline-none" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1.5">Short Name / Acronym</label>
-                <input value={form.shortName} onChange={e => set('shortName', e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-border bg-input-background text-sm focus:outline-none" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1.5">Contact Email</label>
-                <input type="email" value={form.contactEmail} onChange={e => set('contactEmail', e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-border bg-input-background text-sm focus:outline-none" />
-              </div>
-            </div>
-          </div>
+      {saved && (
+        <div className="p-3 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm">
+          Branding saved. Changes apply on next page load.
+        </div>
+      )}
 
-          <div className="bg-white rounded-2xl border border-border p-5">
-            <h2 className="font-bold text-sm mb-4" style={{ color: '#1E3A5F' }}>Colours</h2>
+      <div className={`grid gap-6 ${preview ? "lg:grid-cols-[1fr_360px]" : ""}`}>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <Section title="Identity">
+            <TextField label="Portal Name" value={form.portal_name} onChange={set("portal_name")} />
+            <TextField label="Full Association Name" value={form.association_name} onChange={set("association_name")} />
+            <TextField label="Short Name / Acronym" value={form.short_name} onChange={set("short_name")} />
+            <TextField label="Contact Email" type="email" value={form.contact_email} onChange={set("contact_email")} />
+          </Section>
+
+          <Section title="Colours">
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1.5">Primary Color</label>
-                <div className="flex items-center gap-2">
-                  <input type="color" value={form.primaryColor} onChange={e => set('primaryColor', e.target.value)}
-                    className="w-10 h-10 rounded-lg border border-border cursor-pointer p-0.5" />
-                  <input type="text" value={form.primaryColor} onChange={e => set('primaryColor', e.target.value)}
-                    className="flex-1 px-3 py-2 rounded-xl border border-border bg-input-background text-sm focus:outline-none font-mono" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1.5">Accent Color</label>
-                <div className="flex items-center gap-2">
-                  <input type="color" value={form.accentColor} onChange={e => set('accentColor', e.target.value)}
-                    className="w-10 h-10 rounded-lg border border-border cursor-pointer p-0.5" />
-                  <input type="text" value={form.accentColor} onChange={e => set('accentColor', e.target.value)}
-                    className="flex-1 px-3 py-2 rounded-xl border border-border bg-input-background text-sm focus:outline-none font-mono" />
-                </div>
-              </div>
+              <ColorField label="Primary" value={form.primary_color} onChange={set("primary_color")} />
+              <ColorField label="Accent" value={form.accent_color} onChange={set("accent_color")} />
             </div>
-          </div>
+          </Section>
 
-          <div className="bg-white rounded-2xl border border-border p-5">
-            <h2 className="font-bold text-sm mb-4" style={{ color: '#1E3A5F' }}>Dashboard Content</h2>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium mb-1.5">Hero Title</label>
-                <input value={form.heroTitle} onChange={e => set('heroTitle', e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-border bg-input-background text-sm focus:outline-none" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1.5">Hero Subtitle</label>
-                <textarea value={form.heroSubtitle} onChange={e => set('heroSubtitle', e.target.value)} rows={2}
-                  className="w-full px-4 py-2.5 rounded-xl border border-border bg-input-background text-sm focus:outline-none resize-none" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1.5">Footer Text</label>
-                <input value={form.footerText} onChange={e => set('footerText', e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-border bg-input-background text-sm focus:outline-none" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1.5">Affiliation Fee (ZMW)</label>
-                <input type="number" value={form.affiliationFee} onChange={e => set('affiliationFee', parseInt(e.target.value))}
-                  className="w-full px-4 py-2.5 rounded-xl border border-border bg-input-background text-sm focus:outline-none" />
-              </div>
+          <Section title="Dashboard & Footer">
+            <TextField label="Hero Title" value={form.hero_title} onChange={set("hero_title")} />
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Hero Subtitle</label>
+              <textarea rows={2} value={form.hero_subtitle} onChange={set("hero_subtitle")} className={`${inputCls} resize-none`} />
             </div>
-          </div>
+            <TextField label="Footer Text" value={form.footer_text} onChange={set("footer_text")} />
+            <TextField label="Affiliation Fee (ZMW)" type="number" value={String(form.affiliation_fee)} onChange={set("affiliation_fee")} />
+          </Section>
 
           <button type="submit" disabled={saving}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-semibold disabled:opacity-60 transition-all hover:opacity-90"
-            style={{ background: saved ? '#2E7D55' : `linear-gradient(135deg, ${form.primaryColor}, ${form.primaryColor}CC)` }}>
-            {saved ? <><Check size={15} /> Changes Saved</> : saving ? 'Saving…' : <><Save size={15} /> Save Branding</>}
+            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 disabled:opacity-60 transition-colors">
+            <Save className="w-4 h-4" /> {saving ? "Saving…" : "Save Branding"}
           </button>
         </form>
 
-        {/* Preview */}
         {preview && (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Live Preview</p>
-
-            {/* Nav preview */}
-            <div className="rounded-2xl overflow-hidden border border-border">
-              <div className="h-12 flex items-center px-4 gap-3 bg-white border-b border-border">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: form.primaryColor }}>
-                  <GraduationCap size={15} className="text-white" />
+            <div className="rounded-xl overflow-hidden border border-border">
+              <div className="h-12 flex items-center px-4 gap-2" style={{ background: form.primary_color }}>
+                <div className="w-7 h-7 rounded-full flex items-center justify-center border-2" style={{ borderColor: form.accent_color }}>
+                  <GraduationCap className="w-4 h-4" style={{ color: form.accent_color }} />
                 </div>
-                <span className="font-bold text-sm" style={{ color: form.primaryColor, fontFamily: 'Playfair Display, serif' }}>{form.shortName}</span>
+                <span className="text-white font-semibold text-sm" style={{ fontFamily: "var(--font-display)" }}>{form.short_name}</span>
               </div>
-              <div className="p-5 text-white" style={{ background: `linear-gradient(135deg, ${form.primaryColor}, ${form.primaryColor}CC)` }}>
-                <p className="text-xs opacity-60 mb-1">Welcome back</p>
-                <p className="text-xl font-bold leading-tight" style={{ fontFamily: 'Playfair Display, serif' }}>{form.heroTitle}</p>
-                <p className="text-xs opacity-60 mt-2 leading-relaxed">{form.heroSubtitle}</p>
-                <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white" style={{ background: form.accentColor, color: form.primaryColor }}>
-                  Internship Portal →
-                </div>
+              <div className="p-5" style={{ background: form.primary_color }}>
+                <span className="inline-block px-2.5 py-1 rounded-full text-xs font-medium mb-3"
+                  style={{ background: `${form.accent_color}33`, color: form.accent_color }}>
+                  {form.short_name}
+                </span>
+                <p className="text-white font-bold leading-tight" style={{ fontFamily: "var(--font-display)", fontSize: "1.15rem" }}>{form.hero_title}</p>
+                <p className="text-white/70 text-xs mt-2 leading-relaxed">{form.hero_subtitle}</p>
               </div>
-              <div className="px-4 py-2 border-t border-border bg-white">
-                <p className="text-xs text-muted-foreground">{form.footerText}</p>
+              <div className="px-4 py-2 bg-card border-t border-border">
+                <p className="text-xs text-muted-foreground">{form.footer_text}</p>
               </div>
             </div>
-
-            {/* Color swatches */}
-            <div className="bg-white rounded-2xl border border-border p-4">
-              <p className="text-xs font-semibold text-muted-foreground mb-3">Color Palette</p>
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <div className="w-full h-12 rounded-xl mb-1.5" style={{ background: form.primaryColor }} />
-                  <p className="text-xs text-muted-foreground text-center">{form.primaryColor}</p>
-                  <p className="text-xs font-medium text-center">Primary</p>
+            <div className="bg-card rounded-xl border border-border p-4 flex gap-3">
+              {[["Primary", form.primary_color], ["Accent", form.accent_color]].map(([name, c]) => (
+                <div key={name} className="flex-1">
+                  <div className="w-full h-10 rounded-lg mb-1.5" style={{ background: c }} />
+                  <p className="text-xs font-medium text-center text-foreground">{name}</p>
+                  <p className="text-xs text-center text-muted-foreground font-mono">{c}</p>
                 </div>
-                <div className="flex-1">
-                  <div className="w-full h-12 rounded-xl mb-1.5" style={{ background: form.accentColor }} />
-                  <p className="text-xs text-muted-foreground text-center">{form.accentColor}</p>
-                  <p className="text-xs font-medium text-center">Accent</p>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+const inputCls =
+  "w-full px-3 py-2.5 rounded-lg border border-border bg-input-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 transition-colors";
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-card rounded-xl border border-border p-5 space-y-3">
+      <h2 className="font-semibold text-foreground text-sm">{title}</h2>
+      {children}
+    </div>
+  );
+}
+
+function TextField({ label, value, onChange, type = "text" }: {
+  label: string; value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; type?: string;
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-medium mb-1.5">{label}</label>
+      <input type={type} value={value} onChange={onChange} className={inputCls} />
+    </div>
+  );
+}
+
+function ColorField({ label, value, onChange }: {
+  label: string; value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-medium mb-1.5">{label}</label>
+      <div className="flex items-center gap-2">
+        <input type="color" value={value} onChange={onChange} className="w-10 h-10 rounded-lg border border-border cursor-pointer p-0.5 shrink-0" />
+        <input type="text" value={value} onChange={onChange} className={`${inputCls} font-mono`} />
       </div>
     </div>
   );

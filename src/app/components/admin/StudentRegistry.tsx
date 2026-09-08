@@ -1,126 +1,147 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../shared/AuthContext';
-import { api } from '../shared/api';
-import { Search, Download } from 'lucide-react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { useState, useEffect } from "react";
+import { StudentProfiles } from "../../lib/data";
+import { downloadStudentRegistryPdf } from "../../lib/pdf";
+import { useBranding } from "../shared/BrandingContext";
+import type { StudentProfile } from "../../lib/types";
+import { Search, X, Download, FileText, Eye } from "lucide-react";
+
+function StudentDialog({ profile, onClose }: { profile: StudentProfile; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
+      <div className="bg-card rounded-xl border border-border shadow-xl w-full max-w-lg my-4">
+        <div className="flex items-center justify-between p-5 border-b border-border">
+          <h3 className="font-semibold text-foreground" style={{ fontFamily: "var(--font-display)" }}>Student Details</h3>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="p-5 grid grid-cols-2 gap-4">
+          {[
+            ["Full Name", profile.full_name], ["Computer No.", profile.computer_number],
+            ["Year of Study", profile.year_of_study], ["Programme", profile.academic_programme],
+            ["Email", profile.email], ["Phone", profile.phone],
+            ["Affiliation", profile.affiliation ? `Yes (${profile.affiliation_year ?? "?"})` : "No"],
+            ["Membership No.", profile.affiliation_number || "—"],
+          ].map(([k, v]) => (
+            <div key={k} className="space-y-0.5">
+              <p className="text-xs text-muted-foreground">{k}</p>
+              <p className="text-sm font-medium text-foreground break-all">{v}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function StudentRegistry() {
-  const { token } = useAuth();
-  const [students, setStudents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [yearFilter, setYearFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-
-  const fetchStudents = () => {
-    if (!token) return;
-    api('/students', {}, token).then(setStudents).catch(console.error).finally(() => setLoading(false));
-  };
+  const { branding } = useBranding();
+  const [profiles, setProfiles] = useState<StudentProfile[]>([]);
+  const [search, setSearch] = useState("");
+  const [yearFilter, setYearFilter] = useState("");
+  const [affiliationFilter, setAffiliationFilter] = useState("");
+  const [selected, setSelected] = useState<StudentProfile | null>(null);
 
   useEffect(() => {
-    fetchStudents();
-  }, [token]);
+    let active = true;
+    StudentProfiles.list().then(list => { if (active) setProfiles(list); });
+    return () => { active = false; };
+  }, []);
 
-  const filtered = students.filter((s: any) => {
-    const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase()) || s.studentId.includes(search);
-    const matchesYear = yearFilter === '' || s.yearOfStudy === yearFilter;
-    const matchesStatus = statusFilter === '' || s.affiliationStatus === statusFilter;
-    return matchesSearch && matchesYear && matchesStatus;
+  const filtered = profiles.filter(p => {
+    const q = search.toLowerCase();
+    const matchSearch = !q || p.full_name.toLowerCase().includes(q) || p.computer_number.toLowerCase().includes(q) || p.academic_programme.toLowerCase().includes(q);
+    const matchYear = !yearFilter || p.year_of_study === yearFilter;
+    const matchAff = affiliationFilter === "" || (affiliationFilter === "yes" ? p.affiliation : !p.affiliation);
+    return matchSearch && matchYear && matchAff;
   });
 
   const downloadCSV = () => {
-    const headers = ['Name', 'Student ID', 'Year', 'Programme', 'Affiliated', 'Internship Status'];
-    const rows = filtered.map((s: any) => [s.name, s.studentId, s.yearOfStudy, s.programme, s.affiliationStatus === 'affiliated' ? 'Yes' : 'No', s.internshipStatus]);
-    const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'students.csv'; a.click();
+    const headers = ["Name", "Computer No.", "Year", "Programme", "Affiliation", "Member No.", "Email", "Phone"];
+    const rows = filtered.map(p => [
+      p.full_name, p.computer_number, p.year_of_study, p.academic_programme,
+      p.affiliation ? `Yes (${p.affiliation_year ?? ""})` : "No", p.affiliation_number || "", p.email, p.phone,
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = "students.csv"; a.click();
     URL.revokeObjectURL(url);
   };
 
-  const downloadPDF = () => {
-    const doc = new jsPDF();
-    doc.text('Student Registry', 14, 10);
-    autoTable(doc, {
-      head: [['Name', 'Student ID', 'Year', 'Programme', 'Affiliated', 'Status']],
-      body: filtered.map((s: any) => [s.name, s.studentId, s.yearOfStudy, s.programme, s.affiliationStatus === 'affiliated' ? 'Yes' : 'No', s.internshipStatus]),
-      startY: 20,
-    });
-    doc.save('students.pdf');
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'approved': return 'bg-green-100 text-green-700';
-      case 'placed': return 'bg-blue-100 text-blue-700';
-      case 'pending': return 'bg-yellow-100 text-yellow-700';
-      default: return 'bg-gray-100 text-gray-500';
-    }
-  };
-
-  if (loading) return <div className="p-6">Loading...</div>;
-
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold" style={{ fontFamily: 'Playfair Display, serif' }}>Student Registry</h1>
+    <div className="space-y-6">
+      {selected && <StudentDialog profile={selected} onClose={() => setSelected(null)} />}
+
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-foreground" style={{ fontFamily: "var(--font-display)" }}>Student Registry</h1>
+          <p className="text-muted-foreground text-sm mt-1">{filtered.length} of {profiles.length} students</p>
+        </div>
         <div className="flex gap-2">
-          <button onClick={downloadCSV} className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white rounded text-sm"><Download size={14} /> CSV</button>
-          <button onClick={downloadPDF} className="flex items-center gap-1 px-3 py-1 bg-red-600 text-white rounded text-sm"><Download size={14} /> PDF</button>
+          <button onClick={downloadCSV} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-sm text-foreground hover:bg-muted transition-colors">
+            <Download className="w-4 h-4" /> Export CSV
+          </button>
+          <button onClick={() => downloadStudentRegistryPdf(filtered, branding)} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-sm text-foreground hover:bg-muted transition-colors">
+            <FileText className="w-4 h-4" /> Download PDF
+          </button>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-4">
-        <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input type="text" placeholder="Search by name, ID..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 pr-4 py-2 border rounded-lg text-sm w-80" />
+      <div className="grid sm:grid-cols-4 gap-3">
+        <div className="sm:col-span-2 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, ID, or programme…"
+            className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-border bg-input-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 text-sm transition-colors" />
         </div>
-        <select value={yearFilter} onChange={(e) => setYearFilter(e.target.value)} className="px-3 py-2 border rounded-lg text-sm">
+        <select value={yearFilter} onChange={e => setYearFilter(e.target.value)}
+          className="px-3 py-2.5 rounded-lg border border-border bg-input-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/50 transition-colors">
           <option value="">All Years</option>
-          <option>Year 1</option><option>Year 2</option><option>Year 3</option><option>Year 4</option><option>Postgraduate</option>
+          {["1st Year","2nd Year","3rd Year","4th Year","5th Year","Postgraduate"].map(y => <option key={y}>{y}</option>)}
         </select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2 border rounded-lg text-sm">
-          <option value="">All Statuses</option>
-          <option>affiliated</option><option>pending</option><option>not_affiliated</option>
+        <select value={affiliationFilter} onChange={e => setAffiliationFilter(e.target.value)}
+          className="px-3 py-2.5 rounded-lg border border-border bg-input-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/50 transition-colors">
+          <option value="">All</option>
+          <option value="yes">Affiliated</option>
+          <option value="no">Not affiliated</option>
         </select>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto border rounded-xl">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b">
-            <tr className="text-left text-sm font-medium text-gray-500">
-              <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">Student ID</th>
-              <th className="px-4 py-3">Year</th>
-              <th className="px-4 py-3">Programme</th>
-              <th className="px-4 py-3">Affiliated</th>
-              <th className="px-4 py-3">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((s: any) => (
-              <tr key={s.id} className="border-b hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium">{s.name}</td>
-                <td className="px-4 py-3 text-gray-600">{s.studentId}</td>
-                <td className="px-4 py-3">{s.yearOfStudy}</td>
-                <td className="px-4 py-3">{s.programme}</td>
-                <td className="px-4 py-3">{s.affiliationStatus === 'affiliated' ? 'Yes' : 'No'}</td>
-                <td className="px-4 py-3">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(s.internshipStatus)}`}>
-                    {s.internshipStatus}
-                  </span>
-                </td>
+      <div className="bg-card rounded-xl border border-border overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted border-b border-border">
+              <tr>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Name</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Computer No.</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Year</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Programme</th>
+                <th className="text-center px-4 py-3 font-medium text-muted-foreground">Affiliated</th>
+                <th className="text-center px-4 py-3 font-medium text-muted-foreground"></th>
               </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr><td colSpan={6} className="text-center py-8 text-gray-400">No students found</td></tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr><td colSpan={6} className="text-center py-10 text-muted-foreground">No students found.</td></tr>
+              ) : filtered.map(p => (
+                <tr key={p.id} className="border-b border-border last:border-0 hover:bg-muted/40 transition-colors">
+                  <td className="px-4 py-3 font-medium text-foreground">{p.full_name}</td>
+                  <td className="px-4 py-3 text-muted-foreground font-mono text-xs">{p.computer_number}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{p.year_of_study}</td>
+                  <td className="px-4 py-3 text-muted-foreground max-w-[150px] truncate" title={p.academic_programme}>{p.academic_programme}</td>
+                  <td className="px-4 py-3 text-center">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.affiliation ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}>
+                      {p.affiliation ? `Yes · ${p.affiliation_year ?? ""}` : "No"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <button onClick={() => setSelected(p)} className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
+                      <Eye className="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

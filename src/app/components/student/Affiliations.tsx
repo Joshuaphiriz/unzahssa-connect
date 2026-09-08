@@ -1,239 +1,257 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../shared/AuthContext';
-import { api } from '../shared/api';
-import { useBranding } from '../shared/BrandingContext';
-import { CheckCircle, Clock, XCircle, Download } from 'lucide-react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../../lib/auth";
+import { StudentProfiles, Payments, AuditLogs } from "../../lib/data";
+import { useBranding } from "../shared/BrandingContext";
+import { downloadAffiliationReceipt } from "../../lib/receipt";
+import type { StudentProfile, Payment } from "../../lib/types";
+import { CheckCircle, AlertTriangle, X, BookOpen, Briefcase, Award, Download } from "lucide-react";
 
-export function Affiliations() {
-  const { user, token } = useAuth();
-  const { branding } = useBranding();
-  const [payments, setPayments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({
-    method: 'MTN',
-    reference: '',
-    payerNumber: '',
-  });
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+const YEAR = new Date().getFullYear();
 
-  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
-
-  const fetchPayments = () => {
-    api('/payments', {}, token)
-      .then(setPayments)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    if (token) fetchPayments();
-  }, [token]);
+function PaymentModal({ profile, fee, onClose, onPaid }: {
+  profile: StudentProfile;
+  fee: number;
+  onClose: () => void;
+  onPaid: () => void;
+}) {
+  const { user } = useAuth();
+  const [form, setForm] = useState({ method: "Mobile Money" as Payment["payment_method"], reference: "" });
+  const [success, setSuccess] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitting(true);
-    setError('');
-    setSuccess('');
+    setSaving(true);
     try {
-      await api('/payments', { method: 'POST', body: JSON.stringify(form) }, token);
-      setSuccess('Payment submitted successfully! Awaiting confirmation.');
-      setForm({ method: 'MTN', reference: '', payerNumber: '' });
-      fetchPayments();
-    } catch (err: any) {
-      setError(err.message || 'Payment submission failed');
+      await Payments.create({
+        profile_id: profile.id,
+        student_name: profile.full_name,
+        student_email: profile.email,
+        computer_number: profile.computer_number,
+        amount: fee,
+        payment_type: "Affiliation Fee",
+        payment_method: form.method,
+        reference_number: form.reference,
+        status: "pending",
+        receipt_sent: false,
+      });
+      if (user) await AuditLogs.create({
+        user_name: user.name, user_email: user.email,
+        action: "SUBMIT_PAYMENT", details: `Affiliation payment submitted via ${form.method}`, page: "/affiliations",
+      });
+      setSuccess(true);
+      setTimeout(() => { onPaid(); onClose(); }, 2000);
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
   };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'approved': return <span className="flex items-center gap-1 text-green-600"><CheckCircle size={16} /> Approved</span>;
-      case 'pending': return <span className="flex items-center gap-1 text-yellow-600"><Clock size={16} /> Pending</span>;
-      case 'rejected': return <span className="flex items-center gap-1 text-red-600"><XCircle size={16} /> Rejected</span>;
-      default: return <span className="text-gray-400">{status}</span>;
-    }
-  };
-
-  const generateReceiptNumber = () => {
-    const prefix = 'UNZ';
-    const timestamp = Date.now().toString(36).toUpperCase();
-    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-    return `${prefix}-${timestamp}-${random}`;
-  };
-
-  const downloadReceipt = (payment: any) => {
-    const receiptNo = generateReceiptNumber();
-    const doc = new jsPDF();
-
-    // Brand header (text-based logo)
-    doc.setFontSize(22);
-    doc.setTextColor('#1E3A5F');
-    doc.text('UNZAHSSA', 14, 20);
-    doc.setFontSize(10);
-    doc.setTextColor('#D4A33D');
-    doc.text('CONNECT', 14, 28);
-    doc.setTextColor('#000000');
-
-    doc.setFontSize(18);
-    doc.text('Payment Receipt', 14, 40);
-    doc.setFontSize(10);
-    doc.text(`Receipt No: ${receiptNo}`, 14, 50);
-    doc.text(`Date: ${new Date().toLocaleString()}`, 14, 56);
-    doc.text(`Student: ${payment.userName} (${payment.userEmail})`, 14, 62);
-    doc.text(`Student ID: ${payment.studentId || 'N/A'}`, 14, 68);
-    doc.text(`Programme: ${payment.programme || 'N/A'}`, 14, 74);
-    
-    autoTable(doc, {
-      head: [['Description', 'Amount']],
-      body: [
-        ['Affiliation Fee', `ZMW ${payment.amount}`],
-        ['Reference', payment.reference],
-        ['Payment Method', payment.method],
-      ],
-      startY: 82,
-    });
-    
-    const finalY = (doc as any).lastAutoTable?.finalY || 90;
-    doc.text('Thank you for affiliating with UNZAHSSA.', 14, finalY + 10);
-    doc.save(`receipt_${receiptNo}.pdf`);
-  };
-
-  if (loading) return <div className="p-6">Loading...</div>;
-
-  const latestPayment = payments.length > 0 ? payments[0] : null;
-  const isAffiliated = latestPayment?.status === 'approved';
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>Affiliations</h1>
-      <p className="text-gray-500 mb-6">
-        Affiliation Fee: <span className="font-semibold">ZMW {branding.affiliationFee || 50}</span>
-      </p>
-
-      {/* Status Card */}
-      {latestPayment && (
-        <div className={`p-4 rounded-xl mb-6 border ${
-          isAffiliated ? 'bg-green-50 border-green-200' : 
-          latestPayment.status === 'pending' ? 'bg-yellow-50 border-yellow-200' : 
-          'bg-gray-50 border-gray-200'
-        }`}>
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div>
-              <p className="font-medium">Current Affiliation Status</p>
-              <div className="mt-1">{getStatusBadge(latestPayment.status)}</div>
-            </div>
-            {isAffiliated && (
-              <button 
-                onClick={() => downloadReceipt(latestPayment)} 
-                className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
-              >
-                <Download size={14} /> Download Receipt
-              </button>
-            )}
-          </div>
-          {latestPayment.status === 'approved' && (
-            <p className="text-sm text-green-600 mt-2">You are affiliated. You can download your receipt above.</p>
-          )}
-          {latestPayment.status === 'pending' && (
-            <p className="text-sm text-yellow-600 mt-2">Your payment is being reviewed. You will receive a receipt once approved.</p>
-          )}
-          {latestPayment.status === 'rejected' && (
-            <p className="text-sm text-red-600 mt-2">Your payment was rejected. Please submit a new payment.</p>
-          )}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-card rounded-xl border border-border shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between p-5 border-b border-border">
+          <h3 className="font-semibold text-foreground" style={{ fontFamily: "var(--font-display)" }}>Pay Affiliation Fee</h3>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
         </div>
-      )}
 
-      {/* Submit Payment Form */}
-      {!isAffiliated && (
-        <div className="bg-white border rounded-xl p-6 shadow-sm">
-          <h2 className="text-lg font-semibold mb-4">Submit Affiliation Payment</h2>
-          {error && <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg">{error}</div>}
-          {success && <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-lg">{success}</div>}
-          <form onSubmit={handleSubmit} className="space-y-4">
+        {success ? (
+          <div className="p-8 text-center">
+            <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
+            <p className="font-medium text-foreground">Payment submitted!</p>
+            <p className="text-sm text-muted-foreground mt-1">Awaiting admin confirmation.</p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="p-5 space-y-4">
+            <div className="p-4 rounded-lg bg-muted text-sm space-y-1">
+              <p className="font-medium text-foreground">Payment Instructions</p>
+              <p className="text-muted-foreground">Mobile Money: <span className="text-foreground font-medium">*880*1234567#</span></p>
+              <p className="text-muted-foreground">Bank: <span className="text-foreground font-medium">Zambia National Bank — Acc: 1234567890</span></p>
+              <p className="text-muted-foreground">Branch: Cairo Road, Lusaka</p>
+            </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Payment Method</label>
-              <select value={form.method} onChange={e => set('method', e.target.value)} className="w-full px-3 py-2 border rounded-lg">
-                <option value="MTN">MTN Mobile Money</option>
-                <option value="AIRTEL">Airtel Money</option>
-                <option value="ZANACO">ZANACO</option>
-                <option value="CASH">Cash (in person)</option>
+              <label className="block text-sm font-medium mb-1.5">Amount</label>
+              <input readOnly value={`ZMW ${fee.toFixed(2)}`} className="w-full px-3 py-2.5 rounded-lg border border-border bg-muted text-foreground" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Payment Method</label>
+              <select value={form.method} onChange={e => setForm(f => ({ ...f, method: e.target.value as Payment["payment_method"] }))}
+                className="w-full px-3 py-2.5 rounded-lg border border-border bg-input-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50">
+                <option>Mobile Money</option>
+                <option>Bank Transfer</option>
+                <option>Cash</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Reference Number</label>
-              <input
-                type="text"
-                value={form.reference}
-                onChange={e => set('reference', e.target.value)}
-                required
-                placeholder="e.g. MTN-2026-001"
-                className="w-full px-3 py-2 border rounded-lg"
-              />
+              <label className="block text-sm font-medium mb-1.5">Transaction Reference</label>
+              <input required value={form.reference} onChange={e => setForm(f => ({ ...f, reference: e.target.value }))}
+                placeholder="e.g. ZAIN-2026-12345"
+                className="w-full px-3 py-2.5 rounded-lg border border-border bg-input-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 transition-colors" />
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Payer Phone Number</label>
-              <input
-                type="text"
-                value={form.payerNumber}
-                onChange={e => set('payerNumber', e.target.value)}
-                placeholder="e.g. 0977123456"
-                className="w-full px-3 py-2 border rounded-lg"
-              />
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-lg border border-border text-foreground text-sm hover:bg-muted transition-colors">Cancel</button>
+              <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-lg bg-accent text-accent-foreground font-medium text-sm hover:bg-accent/90 disabled:opacity-60 transition-colors">{saving ? "Submitting…" : "Submit Payment"}</button>
             </div>
-            <button 
-              type="submit" 
-              disabled={submitting} 
-              className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-            >
-              {submitting ? 'Submitting...' : 'Submit Payment'}
-            </button>
           </form>
-        </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  confirmed: "bg-green-100 text-green-700",
+  pending: "bg-yellow-100 text-yellow-700",
+  rejected: "bg-red-100 text-red-700",
+};
+
+export function Affiliations() {
+  const { user } = useAuth();
+  const { branding } = useBranding();
+  const [profile, setProfile] = useState<StudentProfile | null>(null);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [showPayment, setShowPayment] = useState(false);
+
+  const loadData = async () => {
+    if (!user) return;
+    const p = await StudentProfiles.findByUser(user.id);
+    setProfile(p ?? null);
+    setPayments(p ? await Payments.findByProfile(p.id) : []);
+  };
+
+  useEffect(() => { void loadData(); }, [user]);
+
+  const fmt = (d: string) => new Date(d).toLocaleDateString("en-ZM", { day: "numeric", month: "short", year: "numeric" });
+
+  const BENEFITS = [
+    { icon: Award, title: "Member Benefits", desc: "Access exclusive UNZAHSSA events, workshops, and networking sessions." },
+    { icon: BookOpen, title: "Academic Support", desc: "Priority access to academic advisory sessions and library resources." },
+    { icon: Briefcase, title: "Internship Access", desc: "Eligibility for the UNZAHSSA internship placement programme." },
+  ];
+
+  return (
+    <div className="space-y-8">
+      {showPayment && profile && (
+        <PaymentModal profile={profile} fee={branding.affiliation_fee} onClose={() => setShowPayment(false)} onPaid={loadData} />
       )}
 
-      {/* Payment History */}
-      {payments.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-lg font-semibold mb-3">Payment History</h2>
-          <div className="overflow-x-auto border rounded-xl">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b">
-                <tr className="text-left text-sm text-gray-500">
-                  <th className="px-4 py-2">Amount</th>
-                  <th className="px-4 py-2">Method</th>
-                  <th className="px-4 py-2">Reference</th>
-                  <th className="px-4 py-2">Status</th>
-                  <th className="px-4 py-2">Date</th>
-                  <th className="px-4 py-2">Receipt</th>
-                </tr>
-              </thead>
-              <tbody>
-                {payments.map((p: any) => (
-                  <tr key={p.id} className="border-b hover:bg-gray-50">
-                    <td className="px-4 py-2 font-medium">ZMW {p.amount}</td>
-                    <td className="px-4 py-2">{p.method}</td>
-                    <td className="px-4 py-2 text-sm">{p.reference}</td>
-                    <td className="px-4 py-2">{getStatusBadge(p.status)}</td>
-                    <td className="px-4 py-2 text-sm">{new Date(p.submittedAt).toLocaleDateString()}</td>
-                    <td className="px-4 py-2">
-                      {p.status === 'approved' && (
-                        <button onClick={() => downloadReceipt(p)} className="text-blue-600 hover:text-blue-800 text-sm">
-                          <Download size={14} />
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      <div>
+        <h1 className="text-foreground" style={{ fontFamily: "var(--font-display)" }}>My Affiliations</h1>
+        <p className="text-muted-foreground text-sm mt-1">Manage your UNZAHSSA membership and affiliation status.</p>
+      </div>
+
+      {!profile ? (
+        <div className="bg-card rounded-lg border border-border p-8 text-center text-muted-foreground text-sm">
+          Loading your affiliation details…
         </div>
-      )}
+      ) : (() => {
+        const affiliatedThisYear = profile.affiliation && profile.affiliation_year === YEAR;
+        const pendingThisYear = payments.some(p => p.status === "pending" && p.year === YEAR);
+        return (
+        <>
+          <div className={`rounded-lg border-l-4 border border-border p-5 ${affiliatedThisYear ? "border-l-green-500 bg-green-50" : "border-l-amber-500 bg-amber-50"}`}>
+            <div className="flex items-start gap-3">
+              {affiliatedThisYear
+                ? <CheckCircle className="w-6 h-6 text-green-600 mt-0.5 shrink-0" />
+                : <AlertTriangle className="w-6 h-6 text-amber-600 mt-0.5 shrink-0" />}
+              <div className="flex-1">
+                <h3 className={`font-semibold mb-1 ${affiliatedThisYear ? "text-green-800" : "text-amber-800"}`}>
+                  {affiliatedThisYear ? `Affiliated for ${YEAR}` : "Not Affiliated for this Year"}
+                </h3>
+                {affiliatedThisYear ? (
+                  <div className="space-y-1 text-sm text-green-700">
+                    <p>Your UNZAHSSA membership is active for the {YEAR} academic year.</p>
+                    {profile.affiliation_number && <p>Membership #: <strong>{profile.affiliation_number}</strong></p>}
+                  </div>
+                ) : pendingThisYear ? (
+                  <p className="text-sm text-amber-700">
+                    Your {YEAR} payment has been submitted and is awaiting admin confirmation.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-sm text-amber-700">
+                      Affiliation is renewed once per academic year. Pay the ZMW {branding.affiliation_fee} fee
+                      to activate your {YEAR} membership and access all UNZAHSSA benefits.
+                    </p>
+                    <button onClick={() => setShowPayment(true)}
+                      className="mt-2 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 transition-colors">
+                      Pay {YEAR} Affiliation Fee — ZMW {branding.affiliation_fee}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-4">
+            {BENEFITS.map(b => {
+              const Icon = b.icon;
+              return (
+                <div key={b.title} className={`bg-card rounded-lg border border-border p-5 transition-all ${!affiliatedThisYear ? "opacity-50 grayscale" : "hover:shadow-md"}`}>
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                    <Icon className="w-5 h-5 text-primary" />
+                  </div>
+                  <h4 className="font-semibold text-foreground mb-2 text-sm">{b.title}</h4>
+                  <p className="text-muted-foreground text-xs leading-relaxed">{b.desc}</p>
+                </div>
+              );
+            })}
+          </div>
+
+          <div>
+            <h2 className="text-foreground mb-4" style={{ fontFamily: "var(--font-display)" }}>Payment History</h2>
+            {payments.length === 0 ? (
+              <div className="bg-card rounded-lg border border-border p-6 text-center text-muted-foreground text-sm">
+                No payment records found.
+              </div>
+            ) : (
+              <div className="bg-card rounded-lg border border-border overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted border-b border-border">
+                      <tr>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground">Reference</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground">Year</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground">Method</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date</th>
+                        <th className="text-right px-4 py-3 font-medium text-muted-foreground">Amount</th>
+                        <th className="text-center px-4 py-3 font-medium text-muted-foreground">Status</th>
+                        <th className="text-right px-4 py-3 font-medium text-muted-foreground">Receipt</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {payments.map(p => (
+                        <tr key={p.id} className="border-b border-border last:border-0 hover:bg-muted/40 transition-colors">
+                          <td className="px-4 py-3 font-mono text-xs text-foreground">{p.reference_number}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{p.year}</td>
+                          <td className="px-4 py-3 text-foreground">{p.payment_method}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{fmt(p.created_date)}</td>
+                          <td className="px-4 py-3 text-right font-medium text-foreground">ZMW {p.amount.toFixed(2)}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[p.status] ?? "bg-muted text-muted-foreground"}`}>
+                              {p.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {p.status === "confirmed" ? (
+                              <button onClick={() => downloadAffiliationReceipt(p, profile, branding)}
+                                className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                                <Download className="w-3.5 h-3.5" /> Receipt
+                              </button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+        );
+      })()}
     </div>
   );
 }

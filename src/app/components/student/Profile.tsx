@@ -1,129 +1,157 @@
-import { useState } from 'react';
-import { User, Mail, IdCard, BookOpen, Calendar, Save, Check } from 'lucide-react';
-import { useAuth } from '../shared/AuthContext';
-import { api } from '../shared/api';
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../../lib/auth";
+import { StudentProfiles, Programmes, AuditLogs } from "../../lib/data";
+import type { StudentProfile } from "../../lib/types";
+import { User, Mail, IdCard, Phone, BookOpen, GraduationCap, CheckCircle, Save } from "lucide-react";
 
-const PROGRAMMES = [
-  'BA History', 'BA Sociology', 'BA Political Science', 'BA Philosophy',
-  'BA Mass Communication', 'BA Social Work', 'BA Psychology', 'BA Economics',
-  'BA English', 'BA Linguistics', 'BA Geography', 'BA Development Studies',
-  'MA History', 'MA Sociology', 'PhD Political Science',
-];
+const YEARS = ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year", "Postgraduate"];
 
 export function Profile() {
-  const { user, token, refreshUser } = useAuth();
-  const [form, setForm] = useState({
-    name: user?.user_metadata?.name || '',
-    studentId: user?.user_metadata?.studentId || '',
-    programme: user?.user_metadata?.programme || '',
-    yearOfStudy: user?.user_metadata?.yearOfStudy || '',
-  });
-  const [saving, setSaving] = useState(false);
+  const { user } = useAuth();
+  const [profile, setProfile] = useState<StudentProfile | null>(null);
+  const [programmes, setProgrammes] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
-  const [error, setError] = useState('');
+  const [form, setForm] = useState({
+    full_name: "",
+    computer_number: "",
+    year_of_study: "",
+    academic_programme: "",
+    phone: "",
+    email: "",
+  });
 
-  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+  useEffect(() => {
+    let active = true;
+    Programmes.list().then(list => { if (active) setProgrammes(list); });
+    if (!user) return;
+    StudentProfiles.findByUser(user.id).then(p => {
+      if (!active) return;
+      setProfile(p ?? null);
+      setForm({
+        full_name: p?.full_name || user.name,
+        computer_number: p?.computer_number || "",
+        year_of_study: p?.year_of_study || "",
+        academic_programme: p?.academic_programme || "",
+        phone: p?.phone || "",
+        email: p?.email || user.email,
+      });
+    });
+    return () => { active = false; };
+  }, [user]);
 
-  const handleSave = async (e: React.FormEvent) => {
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setForm(f => ({ ...f, [k]: e.target.value }));
+
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true); setError('');
+    if (!user) return;
+    setSaving(true);
     try {
-      await api('/auth/profile', { method: 'PUT', body: JSON.stringify(form) }, token);
-      await refreshUser();
+      const next = profile
+        ? await StudentProfiles.update(profile.id, { ...form })
+        : await StudentProfiles.create({ ...form });
+      setProfile(next);
+      await AuditLogs.create({
+        user_name: user.name, user_email: user.email,
+        action: "PROFILE_UPDATE", details: "Updated personal profile", page: "/profile",
+      });
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
-    } catch (err: any) {
-      setError(err.message || 'Failed to save.');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
+  const initials = (form.full_name || "?").split(" ").map(s => s[0]).slice(0, 2).join("").toUpperCase();
+
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold" style={{ fontFamily: 'Playfair Display, serif', color: '#1E3A5F' }}>My Profile</h1>
-        <p className="text-muted-foreground text-sm mt-1">Manage your personal and academic information</p>
+    <div className="space-y-8 max-w-3xl">
+      <div>
+        <h1 className="text-foreground" style={{ fontFamily: "var(--font-display)" }}>My Profile</h1>
+        <p className="text-muted-foreground text-sm mt-1">Manage your personal and academic information.</p>
       </div>
 
-      {/* Avatar */}
-      <div className="flex items-center gap-4 mb-8 p-5 bg-white rounded-2xl border border-border">
-        <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-2xl font-bold flex-shrink-0"
-          style={{ background: 'linear-gradient(135deg, #1E3A5F, #2A4F7A)' }}>
-          {form.name?.[0]?.toUpperCase() || '?'}
+      {/* Identity card */}
+      <div className="bg-card rounded-xl border border-border p-6 flex items-center gap-4">
+        <div className="w-16 h-16 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xl font-bold shrink-0">
+          {initials}
         </div>
-        <div>
-          <p className="font-bold text-lg text-foreground">{form.name || 'Student'}</p>
-          <p className="text-sm text-muted-foreground">{user?.email}</p>
-          {form.programme && <p className="text-xs font-medium mt-0.5" style={{ color: '#D4A33D' }}>{form.programme} · {form.yearOfStudy}</p>}
+        <div className="min-w-0">
+          <p className="text-foreground font-semibold text-lg truncate">{form.full_name || "Student"}</p>
+          <p className="text-muted-foreground text-sm truncate">{form.email}</p>
+          {form.academic_programme && (
+            <p className="text-xs font-medium mt-0.5 text-accent">
+              {form.academic_programme}{form.year_of_study ? ` · ${form.year_of_study}` : ""}
+            </p>
+          )}
         </div>
+        {profile?.affiliation && (
+          <span className="ml-auto shrink-0 inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 font-medium">
+            <CheckCircle className="w-3 h-3" /> Affiliated
+          </span>
+        )}
       </div>
 
-      <div className="bg-white rounded-2xl border border-border p-6">
-        <h2 className="font-bold text-lg mb-5" style={{ fontFamily: 'Playfair Display, serif', color: '#1E3A5F' }}>Edit Profile</h2>
+      <form onSubmit={handleSubmit} className="bg-card rounded-xl border border-border p-6 space-y-4">
+        <h2 className="font-semibold text-foreground" style={{ fontFamily: "var(--font-display)" }}>Edit Details</h2>
 
-        {error && <div className="mb-4 px-4 py-3 rounded-xl text-sm" style={{ background: '#FEF2F2', color: '#C0392B' }}>{error}</div>}
-
-        <form onSubmit={handleSave} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Full Name</label>
-            <div className="relative">
-              <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input type="text" value={form.name} onChange={e => set('name', e.target.value)} required
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border bg-input-background text-sm focus:outline-none" />
-            </div>
+        {saved && (
+          <div className="p-3 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm">
+            Profile saved.
           </div>
+        )}
 
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Email Address</label>
-            <div className="relative">
-              <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input type="email" value={user?.email || ''} disabled
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border bg-muted text-sm text-muted-foreground cursor-not-allowed" />
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Email cannot be changed</p>
-          </div>
+        <Field label="Full Name" icon={User}>
+          <input value={form.full_name} onChange={set("full_name")} required className={inputCls} />
+        </Field>
 
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Student ID</label>
-            <div className="relative">
-              <IdCard size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input type="text" value={form.studentId} onChange={e => set('studentId', e.target.value)}
-                placeholder="e.g. 2021123456"
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border bg-input-background text-sm focus:outline-none" />
-            </div>
-          </div>
+        <Field label="Email Address" icon={Mail}>
+          <input type="email" value={form.email} disabled className={`${inputCls} bg-muted text-muted-foreground cursor-not-allowed`} />
+        </Field>
 
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Programme</label>
-            <div className="relative">
-              <BookOpen size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <select value={form.programme} onChange={e => set('programme', e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border bg-input-background text-sm focus:outline-none appearance-none">
-                <option value="">Select programme…</option>
-                {PROGRAMMES.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </div>
-          </div>
+        <Field label="Computer / Student Number" icon={IdCard}>
+          <input value={form.computer_number} onChange={set("computer_number")} placeholder="e.g. 21-1-00234" className={inputCls} />
+        </Field>
 
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Year of Study</label>
-            <div className="relative">
-              <Calendar size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <select value={form.yearOfStudy} onChange={e => set('yearOfStudy', e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border bg-input-background text-sm focus:outline-none appearance-none">
-                <option value="">Select year…</option>
-                {['Year 1', 'Year 2', 'Year 3', 'Year 4', 'Year 5', 'Postgraduate'].map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
-            </div>
-          </div>
+        <Field label="Phone Number" icon={Phone}>
+          <input value={form.phone} onChange={set("phone")} placeholder="+260..." className={inputCls} />
+        </Field>
 
-          <button type="submit" disabled={saving}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-semibold disabled:opacity-60 transition-all hover:opacity-90 mt-2"
-            style={{ background: saved ? '#2E7D55' : 'linear-gradient(135deg, #1E3A5F, #2A4F7A)' }}>
-            {saved ? <><Check size={15} /> Changes Saved</> : saving ? 'Saving…' : <><Save size={15} /> Save Changes</>}
-          </button>
-        </form>
-      </div>
+        <Field label="Academic Programme" icon={BookOpen}>
+          <select value={form.academic_programme} onChange={set("academic_programme")} className={inputCls}>
+            <option value="">Select programme…</option>
+            {programmes.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </Field>
+
+        <Field label="Year of Study" icon={GraduationCap}>
+          <select value={form.year_of_study} onChange={set("year_of_study")} className={inputCls}>
+            <option value="">Select year…</option>
+            {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </Field>
+
+        <button type="submit" disabled={saving}
+          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 disabled:opacity-60 transition-colors">
+          <Save className="w-4 h-4" /> {saving ? "Saving…" : "Save Changes"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+const inputCls =
+  "w-full px-3 py-2.5 rounded-lg border border-border bg-input-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 transition-colors";
+
+function Field({ label, icon: Icon, children }: { label: string; icon: React.ElementType; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="flex items-center gap-1.5 text-sm font-medium mb-1.5">
+        <Icon className="w-3.5 h-3.5 text-muted-foreground" /> {label}
+      </label>
+      {children}
     </div>
   );
 }
