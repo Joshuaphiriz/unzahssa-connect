@@ -64,10 +64,10 @@ function EntryList({ entries, onAdd, onRemove, onUpdate, fields }: {
               <div key={f.key} className={f.textarea ? "sm:col-span-2" : ""}>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">{f.label}</label>
                 {f.textarea ? (
-                  <textarea rows={2} value={(e as Record<string, string>)[f.key as string] ?? ""} onChange={ev => onUpdate(e.id, f.key as string, ev.target.value)}
+                  <textarea rows={2} value={(e as unknown as Record<string, string>)[f.key as string] ?? ""} onChange={ev => onUpdate(e.id, f.key as string, ev.target.value)}
                     className="w-full px-2.5 py-2 rounded-md border border-border bg-input-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/50 resize-none transition-colors" />
                 ) : (
-                  <input value={(e as Record<string, string>)[f.key as string] ?? ""} onChange={ev => onUpdate(e.id, f.key as string, ev.target.value)}
+                  <input value={(e as unknown as Record<string, string>)[f.key as string] ?? ""} onChange={ev => onUpdate(e.id, f.key as string, ev.target.value)}
                     className="w-full px-2.5 py-2 rounded-md border border-border bg-input-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/50 transition-colors" />
                 )}
               </div>

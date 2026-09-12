@@ -114,7 +114,7 @@ export function NewsComposer({ post, onClose, onSaved }: Props) {
           {showTitle && (
             <div>
               <label className="block text-sm font-medium mb-1.5">Title</label>
-              <input value={title} onChange={e => setTitle(e.target.value)} required={kind !== "image"} className={input} />
+              <input value={title} onChange={e => setTitle(e.target.value)} required className={input} />
             </div>
           )}
 

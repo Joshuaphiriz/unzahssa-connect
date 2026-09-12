@@ -1,0 +1,38 @@
+{
+  "note": "Backup taken immediately before fully reverting the document-repository feature (dropped tables, storage bucket, and the additive profiles/programmes columns) at the user's request. This is the user's own real test data from trying the feature, kept here in case any of it (the lecturer name, the course code, the two uploaded PDFs' storage paths) is wanted again later. The storage_objects entries are metadata only (path/size/mimetype) -- the actual file bytes were deleted along with the bucket and are not recoverable from this file.",
+  "repo_courses": [
+    {"id":"8a6a0c8a-2551-41e3-a094-de92a73b35b2","code":"ECN 1115","title":"Introductory Micro","valid_to":null,"valid_from":null,"created_date":"2026-09-12T17:45:38.891223+00:00","code_normalised":"ECN1115"}
+  ],
+  "repo_lecturers": [
+    {"id":"df77a8ac-606b-48cf-9ca5-c81f5c946b44","title":"Mr","status":"active","full_name":"Lukundo Simwiinga","created_date":"2026-09-12T17:46:27.07803+00:00","display_name":"Lukundo"}
+  ],
+  "repo_programme_courses": [
+    {"id":"b2ed9891-76b2-4287-b771-5a3dcc16a901","valid_to":null,"course_id":"8a6a0c8a-2551-41e3-a094-de92a73b35b2","valid_from":null,"requirement":"core","created_date":"2026-09-12T17:46:54.875883+00:00","programme_id":"76c83ccb-dd78-4b6d-b8c1-6028edd5436c","year_of_study":1}
+  ],
+  "repo_course_offerings": [
+    {"id":"45dfd593-8fcc-452f-b840-ec5f337788e1","term":1,"streams":null,"course_id":"8a6a0c8a-2551-41e3-a094-de92a73b35b2","majors_only":false,"created_date":"2026-09-12T17:47:52.030048+00:00","academic_year":2026}
+  ],
+  "repo_offering_lecturers": [
+    {"lecturer_id":"df77a8ac-606b-48cf-9ca5-c81f5c946b44","offering_id":"45dfd593-8fcc-452f-b840-ec5f337788e1"}
+  ],
+  "repo_materials": [
+    {"id":"c15a00d2-fe21-4892-94e2-9fa3237c1f35","kind":"notes","title":"Lecture 2","source":"file","status":"published","course_id":null,"file_hash":"5b2cfafe8297d95b69923f9c9d26172a882bb3c552636a8ba43167baae6a8c69","is_current":true,"page_count":null,"removed_at":null,"removed_by":null,"size_bytes":506372,"version_no":1,"approved_by":"9481ffea-b6a8-4c94-b351-2f047535a687","description":null,"offering_id":"45dfd593-8fcc-452f-b840-ec5f337788e1","storage_key":"fab52c42-0ae3-454a-8d0f-65b0be6fe991/materials/1789235586536_Unit_2-Methods.pdf","created_date":"2026-09-12T17:53:12.611127+00:00","external_url":null,"submitted_by":"fab52c42-0ae3-454a-8d0f-65b0be6fe991","supersedes_id":null,"removed_reason":null},
+    {"id":"72ac2dfa-9eac-4de9-9676-e212e573dc0a","kind":"notes","title":"Lecture 1","source":"file","status":"published","course_id":null,"file_hash":"9094859276cb4435945c2678ba9aeeb1df9d2d73d6f1b6499b6019091beb8ff3","is_current":true,"page_count":null,"removed_at":null,"removed_by":null,"size_bytes":327810,"version_no":1,"approved_by":"9481ffea-b6a8-4c94-b351-2f047535a687","description":null,"offering_id":"45dfd593-8fcc-452f-b840-ec5f337788e1","storage_key":"fab52c42-0ae3-454a-8d0f-65b0be6fe991/materials/1789235546293_part-1-the-study-and-methodology-of-microeconomics.pdf","created_date":"2026-09-12T17:52:25.41304+00:00","external_url":null,"submitted_by":"fab52c42-0ae3-454a-8d0f-65b0be6fe991","supersedes_id":null,"removed_reason":null}
+  ],
+  "repo_publications": [
+    {"id":"8766a69b-b181-4855-8b43-4db2ba95364f","isbn":null,"tags":[],"title":"Quills of Desire","status":"published","authors":"Joshua","edition":null,"category":"Book","language":null,"pub_year":2026,"cover_key":null,"file_hash":"c093110ffcc00fce11afea0288c00a07c6242f12fae173da0e68a0b0f6055663","publisher":"Unzahssa","is_current":true,"removed_at":null,"removed_by":null,"size_bytes":15650661,"version_no":1,"storage_key":"9481ffea-b6a8-4c94-b351-2f047535a687/publications/1789235816082__David_Begg__Gianluigi_Vernasca__Stanley_Fischer___z-lib_org.pdf","uploaded_by":"9481ffea-b6a8-4c94-b351-2f047535a687","created_date":"2026-09-12T17:58:02.326134+00:00","supersedes_id":null,"removed_reason":null}
+  ],
+  "repo_class_reps": [
+    {"id":"64653961-4535-4f39-88f8-7f4884284371","granted_by":"9481ffea-b6a8-4c94-b351-2f047535a687","profile_id":"fab52c42-0ae3-454a-8d0f-65b0be6fe991","offering_id":"45dfd593-8fcc-452f-b840-ec5f337788e1","created_date":"2026-09-12T17:48:25.482546+00:00"}
+  ],
+  "repo_downloads": [
+    {"id":"a8c721ba-59b1-4aa3-bdd7-a51f21d57cfa","item_id":"72ac2dfa-9eac-4de9-9676-e212e573dc0a","item_type":"material","profile_id":"9481ffea-b6a8-4c94-b351-2f047535a687","created_date":"2026-09-12T17:53:52.47219+00:00"},
+    {"id":"11f2abc4-d787-4a79-b036-c9fb5a960b88","item_id":"8766a69b-b181-4855-8b43-4db2ba95364f","item_type":"publication","profile_id":"4d367119-a96c-411e-9945-4bb4f5d75fe8","created_date":"2026-09-12T18:01:36.478076+00:00"},
+    {"id":"952cb4f3-0253-4bea-b1f4-1625e265b539","item_id":"72ac2dfa-9eac-4de9-9676-e212e573dc0a","item_type":"material","profile_id":"4d367119-a96c-411e-9945-4bb4f5d75fe8","created_date":"2026-09-12T18:06:25.003593+00:00"}
+  ],
+  "storage_objects_metadata_only": [
+    {"name":"9481ffea-b6a8-4c94-b351-2f047535a687/publications/1789235816082__David_Begg__Gianluigi_Vernasca__Stanley_Fischer___z-lib_org.pdf","size":15650661,"mimetype":"application/pdf"},
+    {"name":"fab52c42-0ae3-454a-8d0f-65b0be6fe991/materials/1789235546293_part-1-the-study-and-methodology-of-microeconomics.pdf","size":327810,"mimetype":"application/pdf"},
+    {"name":"fab52c42-0ae3-454a-8d0f-65b0be6fe991/materials/1789235586536_Unit_2-Methods.pdf","size":506372,"mimetype":"application/pdf"}
+  ]
+}
