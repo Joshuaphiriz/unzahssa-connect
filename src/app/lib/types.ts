@@ -36,6 +36,14 @@ export interface AdminUser {
   name?: string;      // from profiles if the person has signed up
   registered: boolean;
   is_self?: boolean;
+  profile_id?: string;
+  position_id?: string | null;
+}
+
+export interface AdminPosition {
+  id: string;
+  label: string;
+  pages: string[];
 }
 
 export interface ForumReply {

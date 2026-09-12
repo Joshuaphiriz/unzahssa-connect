@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../../lib/auth";
 import { Payments as PaymentsStore, StudentProfiles, Affiliations, AuditLogs } from "../../lib/data";
 import { useBranding } from "../shared/BrandingContext";
@@ -27,6 +27,7 @@ export function Payments() {
   const [profiles, setProfiles] = useState<Record<string, StudentProfile>>({});
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [yearFilter, setYearFilter] = useState("");
 
   const load = () => {
     void Promise.all([PaymentsStore.list(), StudentProfiles.list()]).then(([pays, profs]) => {
@@ -69,12 +70,18 @@ export function Payments() {
 
   const fmt = (d: string) => new Date(d).toLocaleDateString("en-ZM", { day: "numeric", month: "short", year: "numeric" });
 
+  const years = useMemo(
+    () => Array.from(new Set(payments.map(p => p.year))).sort((a, b) => b - a),
+    [payments],
+  );
+
   const filtered = payments.filter(p => {
     const matchSearch = !search ||
       p.reference_number.toLowerCase().includes(search.toLowerCase()) ||
       p.student_name.toLowerCase().includes(search.toLowerCase());
     const matchStatus = !statusFilter || p.status === statusFilter;
-    return matchSearch && matchStatus;
+    const matchYear = !yearFilter || p.year === Number(yearFilter);
+    return matchSearch && matchStatus && matchYear;
   });
 
   const pending = payments.filter(p => p.status === "pending").length;
@@ -119,6 +126,11 @@ export function Payments() {
           <option value="pending">Pending</option>
           <option value="confirmed">Confirmed</option>
           <option value="rejected">Rejected</option>
+        </select>
+        <select value={yearFilter} onChange={e => setYearFilter(e.target.value)}
+          className="px-3 py-2 rounded-lg border border-border bg-input-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/50">
+          <option value="">All years</option>
+          {years.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
       </div>
 

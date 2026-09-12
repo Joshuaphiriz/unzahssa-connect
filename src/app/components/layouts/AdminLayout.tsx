@@ -8,24 +8,25 @@ import {
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/admin/registry", label: "Student Registry", icon: Users },
-  { to: "/admin/reviews", label: "Internship Reviews", icon: ClipboardList },
-  { to: "/admin/payments", label: "Payments", icon: CreditCard },
-  { to: "/admin/academic-queries", label: "Academic Queries", icon: HelpCircle },
-  { to: "/admin/programmes", label: "Programmes", icon: BookOpen },
-  { to: "/admin/analytics", label: "Analytics", icon: BarChart2 },
-  { to: "/admin/branding", label: "System Branding", icon: Palette },
-  { to: "/admin/users", label: "Admin Users", icon: ShieldCheck },
-  { to: "/admin/audit-log", label: "Audit Log", icon: ScrollText },
+  { to: "/admin/dashboard", page: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/admin/registry", page: "registry", label: "Student Registry", icon: Users },
+  { to: "/admin/reviews", page: "reviews", label: "Internship Reviews", icon: ClipboardList },
+  { to: "/admin/payments", page: "payments", label: "Payments", icon: CreditCard },
+  { to: "/admin/academic-queries", page: "academic_queries", label: "Academic Queries", icon: HelpCircle },
+  { to: "/admin/programmes", page: "programmes", label: "Programmes", icon: BookOpen },
+  { to: "/admin/analytics", page: "analytics", label: "Analytics", icon: BarChart2 },
+  { to: "/admin/branding", page: "branding", label: "System Branding", icon: Palette },
+  { to: "/admin/users", page: "users", label: "Admin Users", icon: ShieldCheck },
+  { to: "/admin/audit-log", page: "audit_log", label: "Audit Log", icon: ScrollText },
 ];
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user, logout, setViewAsStudent } = useAuth();
+  const { user, logout, setViewAsStudent, hasAdminPage } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const navItems = NAV_ITEMS.filter(item => hasAdminPage(item.page));
 
   const handleLogout = async () => {
     await logout();
@@ -59,7 +60,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
       {/* Nav */}
       <nav className="flex-1 p-2 space-y-0.5">
-        {NAV_ITEMS.map(item => {
+        {navItems.map(item => {
           const Icon = item.icon;
           const active = isActive(item.to);
           return (

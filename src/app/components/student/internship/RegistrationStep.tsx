@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "../../../lib/auth";
 import { StudentProfiles, InternshipApplications, Programmes } from "../../../lib/data";
 import type { StudentProfile, InternshipApplication } from "../../../lib/types";
+import { SearchableSelect } from "../../shared/SearchableSelect";
 import { X, Plus, CheckCircle } from "lucide-react";
 
 const YEARS = ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year", "Postgraduate"];
@@ -28,6 +29,7 @@ export function RegistrationStep({ profile, application, onProfileSaved, onAppSa
   const [programmes, setProgrammes] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -47,6 +49,8 @@ export function RegistrationStep({ profile, application, onProfileSaved, onAppSa
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.academic_programme) { setError("Select your academic programme."); return; }
+    setError("");
     setSaving(true);
     try {
       const savedProfile = profile
@@ -91,10 +95,12 @@ export function RegistrationStep({ profile, application, onProfileSaved, onAppSa
           </div>
           <div>
             <label className="block text-sm font-medium mb-1.5">Academic Programme *</label>
-            <select required value={form.academic_programme} onChange={set("academic_programme")} className={field}>
-              <option value="">Select programme…</option>
-              {programmes.map(p => <option key={p}>{p}</option>)}
-            </select>
+            <SearchableSelect
+              value={form.academic_programme}
+              onChange={v => setForm(f => ({ ...f, academic_programme: v }))}
+              options={programmes}
+              placeholder="Select programme…"
+            />
           </div>
         </div>
 
@@ -131,6 +137,8 @@ export function RegistrationStep({ profile, application, onProfileSaved, onAppSa
             ))}
           </div>
         </div>
+
+        {error && <p className="text-sm text-destructive">{error}</p>}
 
         <div className="flex items-center gap-3 pt-2">
           <button type="submit" disabled={saving}

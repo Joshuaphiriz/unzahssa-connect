@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { StudentProfiles } from "../../lib/data";
+import { StudentProfiles, StudentAccounts, AuditLogs } from "../../lib/data";
 import { downloadStudentRegistryPdf } from "../../lib/pdf";
 import { useBranding } from "../shared/BrandingContext";
+import { useAuth } from "../../lib/auth";
 import type { StudentProfile } from "../../lib/types";
-import { Search, X, Download, FileText, Eye } from "lucide-react";
+import { Search, X, Download, FileText, Eye, Trash2 } from "lucide-react";
 
 function StudentDialog({ profile, onClose }: { profile: StudentProfile; onClose: () => void }) {
   return (
@@ -34,17 +35,44 @@ function StudentDialog({ profile, onClose }: { profile: StudentProfile; onClose:
 
 export function StudentRegistry() {
   const { branding } = useBranding();
+  const { user, hasAdminPage } = useAuth();
+  const canDelete = hasAdminPage("users");
   const [profiles, setProfiles] = useState<StudentProfile[]>([]);
   const [search, setSearch] = useState("");
   const [yearFilter, setYearFilter] = useState("");
   const [affiliationFilter, setAffiliationFilter] = useState("");
   const [selected, setSelected] = useState<StudentProfile | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState("");
 
   useEffect(() => {
     let active = true;
     StudentProfiles.list().then(list => { if (active) setProfiles(list); });
     return () => { active = false; };
   }, []);
+
+  const removeStudent = async (p: StudentProfile) => {
+    const confirmed = confirm(
+      `Permanently delete ${p.full_name}'s account?\n\nThis removes their login, profile, payments, documents and internship applications. This cannot be undone.`,
+    );
+    if (!confirmed) return;
+    setDeletingId(p.id);
+    setDeleteError("");
+    try {
+      await StudentAccounts.delete(p.id);
+      if (user) await AuditLogs.create({
+        user_name: user.name, user_email: user.email,
+        action: "STUDENT_DELETED", details: `Deleted student account for ${p.full_name} (${p.email})`,
+        page: "/admin/registry",
+      });
+      setProfiles(prev => prev.filter(x => x.id !== p.id));
+      setSelected(sel => (sel?.id === p.id ? null : sel));
+    } catch (err: any) {
+      setDeleteError(err?.message || "Failed to delete the student account.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const filtered = profiles.filter(p => {
     const q = search.toLowerCase();
@@ -85,6 +113,8 @@ export function StudentRegistry() {
           </button>
         </div>
       </div>
+
+      {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
 
       <div className="grid sm:grid-cols-4 gap-3">
         <div className="sm:col-span-2 relative">
@@ -133,9 +163,18 @@ export function StudentRegistry() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <button onClick={() => setSelected(p)} className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
-                      <Eye className="w-4 h-4" />
-                    </button>
+                    <div className="flex justify-center items-center gap-1.5">
+                      <button onClick={() => setSelected(p)} className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      {canDelete && (
+                        <button onClick={() => removeStudent(p)} disabled={deletingId === p.id}
+                          title="Delete student account and everything belonging to it"
+                          className="p-1.5 rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-50 disabled:opacity-40 transition-colors">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

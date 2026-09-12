@@ -98,52 +98,52 @@ function AppRoutes() {
 
       {/* Admin routes */}
       <Route path="/admin/dashboard" element={
-        <ProtectedRoute adminOnly>
+        <ProtectedRoute adminOnly page="dashboard">
           <AdminLayout><AdminDashboard /></AdminLayout>
         </ProtectedRoute>
       } />
       <Route path="/admin/registry" element={
-        <ProtectedRoute adminOnly>
+        <ProtectedRoute adminOnly page="registry">
           <AdminLayout><StudentRegistry /></AdminLayout>
         </ProtectedRoute>
       } />
       <Route path="/admin/reviews" element={
-        <ProtectedRoute adminOnly>
+        <ProtectedRoute adminOnly page="reviews">
           <AdminLayout><InternshipReviews /></AdminLayout>
         </ProtectedRoute>
       } />
       <Route path="/admin/analytics" element={
-        <ProtectedRoute adminOnly>
+        <ProtectedRoute adminOnly page="analytics">
           <AdminLayout><Analytics /></AdminLayout>
         </ProtectedRoute>
       } />
       <Route path="/admin/payments" element={
-        <ProtectedRoute adminOnly>
+        <ProtectedRoute adminOnly page="payments">
           <AdminLayout><Payments /></AdminLayout>
         </ProtectedRoute>
       } />
       <Route path="/admin/academic-queries" element={
-        <ProtectedRoute adminOnly>
+        <ProtectedRoute adminOnly page="academic_queries">
           <AdminLayout><AcademicQueries /></AdminLayout>
         </ProtectedRoute>
       } />
       <Route path="/admin/programmes" element={
-        <ProtectedRoute adminOnly>
+        <ProtectedRoute adminOnly page="programmes">
           <AdminLayout><Programmes /></AdminLayout>
         </ProtectedRoute>
       } />
       <Route path="/admin/branding" element={
-        <ProtectedRoute adminOnly>
+        <ProtectedRoute adminOnly page="branding">
           <AdminLayout><SystemBranding /></AdminLayout>
         </ProtectedRoute>
       } />
       <Route path="/admin/users" element={
-        <ProtectedRoute adminOnly>
+        <ProtectedRoute adminOnly page="users">
           <AdminLayout><AdminUsers /></AdminLayout>
         </ProtectedRoute>
       } />
       <Route path="/admin/audit-log" element={
-        <ProtectedRoute adminOnly>
+        <ProtectedRoute adminOnly page="audit_log">
           <AdminLayout><AuditLogPage /></AdminLayout>
         </ProtectedRoute>
       } />

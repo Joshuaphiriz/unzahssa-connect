@@ -54,7 +54,7 @@ export function LoginPage() {
                   required
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  placeholder="student@unza.zm"
+                  placeholder="Email address"
                   className="w-full px-3 py-2.5 rounded-lg border border-border bg-input-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring transition-colors"
                 />
               </div>
