@@ -4,7 +4,7 @@ import { Payments as PaymentsStore, StudentProfiles, Affiliations, AuditLogs } f
 import { useBranding } from "../shared/BrandingContext";
 import { downloadAffiliationReceipt } from "../../lib/receipt";
 import type { Payment, StudentProfile } from "../../lib/types";
-import { CreditCard, Download, Search, Check, X, RotateCcw } from "lucide-react";
+import { CreditCard, Download, Search, Check, X, RotateCcw, Trash2 } from "lucide-react";
 
 const STATUS_STYLES: Record<string, string> = {
   confirmed: "bg-green-100 text-green-700",
@@ -22,13 +22,15 @@ function downloadCSV(filename: string, headers: string[], rows: string[][]) {
 }
 
 export function Payments() {
-  const { user } = useAuth();
+  const { user, hasAdminPage } = useAuth();
+  const canDelete = hasAdminPage("users");
   const { branding } = useBranding();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [profiles, setProfiles] = useState<Record<string, StudentProfile>>({});
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [yearFilter, setYearFilter] = useState("");
+  const [deleteError, setDeleteError] = useState("");
 
   const load = () => {
     void Promise.all([PaymentsStore.list(), StudentProfiles.list()]).then(([pays, profs]) => {
@@ -67,6 +69,18 @@ export function Payments() {
     await Affiliations.resetAll();
     await audit("AFFILIATION_RESET_ALL", "Reset affiliation for all students (new academic year)");
     load();
+  };
+
+  const removeTransaction = async (p: Payment) => {
+    if (!confirmDialog(`Permanently delete this transaction (${p.reference_number} — ${p.student_name}, ZMW ${p.amount})? This cannot be undone.`)) return;
+    setDeleteError("");
+    try {
+      await PaymentsStore.remove(p.id);
+      await audit("PAYMENT_DELETED", `Deleted transaction ${p.reference_number} for ${p.student_name} (ZMW ${p.amount}, ${p.year})`);
+      load();
+    } catch (err: any) {
+      setDeleteError(err?.message || "Failed to delete that transaction.");
+    }
   };
 
   const fmt = (d: string) => new Date(d).toLocaleDateString("en-ZM", { day: "numeric", month: "short", year: "numeric" });
@@ -136,6 +150,8 @@ export function Payments() {
         </select>
       </div>
 
+      {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
+
       {filtered.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <CreditCard className="w-10 h-10 mx-auto mb-3 opacity-40" />
@@ -201,6 +217,12 @@ export function Payments() {
                                 </button>
                               )}
                             </>
+                          )}
+                          {canDelete && (
+                            <button onClick={() => removeTransaction(p)} title="Delete this transaction permanently"
+                              className="p-1.5 rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           )}
                         </div>
                       </td>

@@ -344,6 +344,12 @@ export const Payments = {
     if (error) throw error;
     return data as Payment;
   },
+  /** Permanently delete a transaction record. Restricted to full-access
+   * admins at the RLS layer (has_admin_permission('users')). */
+  remove: async (id: string): Promise<void> => {
+    const { error } = await supabase.from("payments").delete().eq("id", id);
+    if (error) throw error;
+  },
 };
 
 // ── Academic Queries ───────────────────────────────────────
