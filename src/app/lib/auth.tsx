@@ -12,6 +12,8 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   isAdmin: boolean;
+  adminPages: string[];
+  hasAdminPage: (page: string) => boolean;
   viewAsStudent: boolean;
   setViewAsStudent: (v: boolean) => void;
   login: (email: string, password: string) => Promise<AuthResult>;
@@ -49,6 +51,7 @@ async function buildUser(session: Session | null): Promise<User | null> {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [adminPages, setAdminPages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewAsStudent, setViewAsStudentState] = useState<boolean>(() => {
     try { return sessionStorage.getItem(VIEW_KEY) === "1"; } catch { return false; }
@@ -60,7 +63,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const sync = useCallback(async (session: Session | null) => {
-    setUser(await buildUser(session));
+    const u = await buildUser(session);
+    setUser(u);
+    if (u?.role === "admin") {
+      const { data } = await supabase.rpc("my_admin_pages");
+      setAdminPages((data as string[] | null) ?? []);
+    } else {
+      setAdminPages([]);
+    }
   }, []);
 
   useEffect(() => {
@@ -104,8 +114,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
+    setAdminPages([]);
     setViewAsStudent(false);
   }, [setViewAsStudent]);
+
+  const hasAdminPage = useCallback(
+    (page: string) => user?.role === "admin" && adminPages.includes(page),
+    [user, adminPages],
+  );
 
   const requestPasswordReset = useCallback(async (email: string): Promise<AuthResult> => {
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
@@ -127,6 +143,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         loading,
         isAdmin: user?.role === "admin",
+        adminPages,
+        hasAdminPage,
         viewAsStudent,
         setViewAsStudent,
         login,

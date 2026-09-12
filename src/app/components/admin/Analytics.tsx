@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useAuth } from "../../lib/auth";
 import { StudentProfiles, Payments, AcademicQueries, InternshipApplications } from "../../lib/data";
 import type { StudentProfile, Payment, AcademicQuery, InternshipApplication } from "../../lib/types";
 import {
@@ -9,6 +10,8 @@ import {
 const COLOURS = ["hsl(220,60%,35%)", "hsl(40,70%,55%)", "hsl(160,50%,45%)", "hsl(280,50%,55%)", "hsl(0,60%,50%)"];
 
 export function Analytics() {
+  const { hasAdminPage } = useAuth();
+  const canSeeRevenue = hasAdminPage("payments");
   const [profiles, setProfiles] = useState<StudentProfile[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [queries, setQueries] = useState<AcademicQuery[]>([]);
@@ -74,7 +77,9 @@ export function Analytics() {
           ["Total Registrations", profiles.length, "bg-blue-50 border-l-blue-500"],
           ["Total Affiliated", profiles.filter(p=>p.affiliation).length, "bg-purple-50 border-l-purple-500"],
           ["Placements Made", placedCount, "bg-green-50 border-l-green-500"],
-          ["Total Revenue (ZMW)", payments.filter(p=>p.status==="confirmed").reduce((s,p)=>s+p.amount,0).toLocaleString(), "bg-amber-50 border-l-amber-500"],
+          ...(canSeeRevenue
+            ? [["Total Revenue (ZMW)", payments.filter(p=>p.status==="confirmed").reduce((s,p)=>s+p.amount,0).toLocaleString(), "bg-amber-50 border-l-amber-500"]]
+            : []),
         ].map(([label,value,cls]) => (
           <div key={label as string} className={`rounded-lg border border-l-4 p-4 ${cls}`}>
             <p className="text-muted-foreground text-xs mb-1">{label}</p>
@@ -115,18 +120,20 @@ export function Analytics() {
 
       {/* Row 2 */}
       <div className="grid lg:grid-cols-2 gap-6">
-        <div className="bg-card rounded-xl border border-border p-5">
-          <h3 className="font-semibold text-foreground mb-4">Monthly Revenue (ZMW)</h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={paymentTrend}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,20%,88%)" />
-              <XAxis dataKey="month" tick={{fontSize:11}} />
-              <YAxis tick={{fontSize:11}} />
-              <Tooltip />
-              <Line type="monotone" dataKey="revenue" name="Revenue (ZMW)" stroke="hsl(220,60%,35%)" strokeWidth={2} dot={{ r: 3 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        {canSeeRevenue && (
+          <div className="bg-card rounded-xl border border-border p-5">
+            <h3 className="font-semibold text-foreground mb-4">Monthly Revenue (ZMW)</h3>
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={paymentTrend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,20%,88%)" />
+                <XAxis dataKey="month" tick={{fontSize:11}} />
+                <YAxis tick={{fontSize:11}} />
+                <Tooltip />
+                <Line type="monotone" dataKey="revenue" name="Revenue (ZMW)" stroke="hsl(220,60%,35%)" strokeWidth={2} dot={{ r: 3 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
 
         <div className="bg-card rounded-xl border border-border p-5">
           <h3 className="font-semibold text-foreground mb-4">Academic Queries — Monthly Trend</h3>

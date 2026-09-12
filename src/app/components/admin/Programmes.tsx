@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../lib/auth";
 import { Programmes as ProgrammesStore, AuditLogs } from "../../lib/data";
-import { BookOpen, Plus, Pencil, Trash2, Check, X } from "lucide-react";
+import { BookOpen, Plus, Pencil, Trash2, Check, X, Search } from "lucide-react";
 
 export function Programmes() {
   const { user } = useAuth();
   const [programmes, setProgrammes] = useState<string[]>([]);
   const [adding, setAdding] = useState("");
+  const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [error, setError] = useState("");
+
+  const filtered = programmes.filter(p => p.toLowerCase().includes(search.toLowerCase()));
 
   const load = () => { void ProgrammesStore.list().then(setProgrammes); };
   useEffect(load, []);
@@ -71,15 +74,21 @@ export function Programmes() {
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
+      <div className="relative">
+        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search programmes…"
+          className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-border bg-input-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50" />
+      </div>
+
       <div className="bg-card rounded-xl border border-border overflow-hidden">
-        {programmes.length === 0 ? (
+        {filtered.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-40" />
-            <p className="text-sm">No programmes yet.</p>
+            <p className="text-sm">{programmes.length === 0 ? "No programmes yet." : "No programmes match your search."}</p>
           </div>
         ) : (
-          <ul className="divide-y divide-border">
-            {programmes.map((p, i) => (
+          <ul className="divide-y divide-border max-h-[28rem] overflow-y-auto">
+            {filtered.map((p, i) => (
               <li key={p} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/40 transition-colors">
                 <span className="text-muted-foreground text-xs w-6 shrink-0">{i + 1}</span>
                 {editing === p ? (

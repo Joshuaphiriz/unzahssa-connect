@@ -52,7 +52,7 @@ export function RegisterPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1.5">Email Address</label>
-                <input type="email" required value={form.email} onChange={set("email")} placeholder="student@unza.zm"
+                <input type="email" required value={form.email} onChange={set("email")} placeholder="Email address"
                   className="w-full px-3 py-2.5 rounded-lg border border-border bg-input-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 transition-colors" />
               </div>
               <div>

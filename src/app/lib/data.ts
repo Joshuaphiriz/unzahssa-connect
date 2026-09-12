@@ -1,7 +1,7 @@
 import { supabase } from "./supabase";
 import type {
   NewsPost, ForumPost, StudentProfile, Payment, AcademicQuery,
-  StudentDocument, AuditLog, Branding, Contact, InternshipApplication, AdminUser,
+  StudentDocument, AuditLog, Branding, Contact, InternshipApplication, AdminUser, AdminPosition,
 } from "./types";
 
 const DOCS_BUCKET = "internship-docs";
@@ -232,7 +232,22 @@ export const StudentProfiles = {
 // ── Affiliations (reset helpers) ───────────────────────────
 
 export const Affiliations = {
+  /** Reset one student's affiliation and void the payment that funded it, so
+   * it drops out of confirmed-revenue totals everywhere they're computed. */
   reset: async (profileId: string): Promise<void> => {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("affiliation_year")
+      .eq("id", profileId)
+      .maybeSingle();
+    if (profile?.affiliation_year != null) {
+      await supabase
+        .from("payments")
+        .update({ status: "reset" })
+        .eq("profile_id", profileId)
+        .eq("year", profile.affiliation_year)
+        .eq("status", "confirmed");
+    }
     const { error } = await supabase
       .from("profiles")
       .update({ affiliation: false, affiliation_year: null, affiliation_number: "" })
@@ -240,6 +255,25 @@ export const Affiliations = {
     if (error) throw error;
   },
   resetAll: async (): Promise<void> => {
+    const { data: affiliated } = await supabase
+      .from("profiles")
+      .select("id, affiliation_year")
+      .eq("role", "student")
+      .eq("affiliation", true);
+
+    const idsByYear = new Map<number, string[]>();
+    for (const p of affiliated ?? []) {
+      if (p.affiliation_year == null) continue;
+      const ids = idsByYear.get(p.affiliation_year) ?? [];
+      ids.push(p.id);
+      idsByYear.set(p.affiliation_year, ids);
+    }
+    await Promise.all(
+      [...idsByYear.entries()].map(([year, ids]) =>
+        supabase.from("payments").update({ status: "reset" }).eq("year", year).eq("status", "confirmed").in("profile_id", ids),
+      ),
+    );
+
     const { error } = await supabase
       .from("profiles")
       .update({ affiliation: false, affiliation_year: null, affiliation_number: "" })
@@ -309,6 +343,12 @@ export const Payments = {
       .single();
     if (error) throw error;
     return data as Payment;
+  },
+  /** Permanently delete a transaction record. Restricted to full-access
+   * admins at the RLS layer (has_admin_permission('users')). */
+  remove: async (id: string): Promise<void> => {
+    const { error } = await supabase.from("payments").delete().eq("id", id);
+    if (error) throw error;
   },
 };
 
@@ -522,17 +562,27 @@ export const AdminUsers = {
       : { data: null };
     const emails = (rows ?? []).map((r) => r.email as string);
     const { data: profs } = emails.length
-      ? await supabase.from("profiles").select("email, full_name").in("email", emails)
+      ? await supabase.from("profiles").select("id, email, full_name").in("email", emails)
       : { data: [] as any[] };
-    const byEmail = new Map((profs ?? []).map((p: any) => [p.email.toLowerCase(), p.full_name as string]));
-    return (rows ?? []).map((r: any) => ({
-      email: r.email,
-      added_by: r.added_by,
-      created_date: r.created_date,
-      name: byEmail.get(r.email.toLowerCase()),
-      registered: byEmail.has(r.email.toLowerCase()),
-      is_self: me?.email?.toLowerCase() === r.email.toLowerCase(),
-    }));
+    const byEmail = new Map((profs ?? []).map((p: any) => [p.email.toLowerCase(), p]));
+    const profileIds = (profs ?? []).map((p: any) => p.id as string);
+    const { data: assignments } = profileIds.length
+      ? await supabase.from("admin_position_assignments").select("profile_id, position_id").in("profile_id", profileIds)
+      : { data: [] as any[] };
+    const posByProfile = new Map((assignments ?? []).map((a: any) => [a.profile_id, a.position_id as string]));
+    return (rows ?? []).map((r: any) => {
+      const prof = byEmail.get(r.email.toLowerCase());
+      return {
+        email: r.email,
+        added_by: r.added_by,
+        created_date: r.created_date,
+        name: prof?.full_name,
+        registered: !!prof,
+        is_self: me?.email?.toLowerCase() === r.email.toLowerCase(),
+        profile_id: prof?.id,
+        position_id: prof ? posByProfile.get(prof.id) ?? null : null,
+      };
+    });
   },
   add: async (email: string, addedBy: string): Promise<void> => {
     const e = email.trim().toLowerCase();
@@ -542,8 +592,53 @@ export const AdminUsers = {
   },
   remove: async (email: string): Promise<void> => {
     const e = email.trim().toLowerCase();
-    await supabase.from("admin_emails").delete().eq("email", e);
+    const { error } = await supabase.from("admin_emails").delete().eq("email", e);
+    if (error) throw error;
     await supabase.from("profiles").update({ role: "student" }).eq("email", e);
+  },
+  setPosition: async (profileId: string, positionId: string | null): Promise<void> => {
+    if (positionId === null) {
+      const { error } = await supabase.from("admin_position_assignments").delete().eq("profile_id", profileId);
+      if (error) throw error;
+      return;
+    }
+    const assignedBy = await currentUserId();
+    const { error } = await supabase
+      .from("admin_position_assignments")
+      .upsert({ profile_id: profileId, position_id: positionId, assigned_by: assignedBy });
+    if (error) throw error;
+  },
+};
+
+export const AdminPositions = {
+  list: async (): Promise<AdminPosition[]> => {
+    const { data } = await supabase.from("admin_positions").select("*").order("label");
+    return (data ?? []) as AdminPosition[];
+  },
+};
+
+// ── Student account deletion (edge function; cascades everything) ──
+
+const DELETE_STUDENT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-delete-student`;
+
+export const StudentAccounts = {
+  delete: async (studentId: string): Promise<void> => {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) throw new Error("Not signed in.");
+    const res = await fetch(DELETE_STUDENT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ student_id: studentId }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body?.error || "Failed to delete the student account.");
+    }
   },
 };
 

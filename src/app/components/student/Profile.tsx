@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "../../lib/auth";
 import { StudentProfiles, Programmes, AuditLogs } from "../../lib/data";
 import type { StudentProfile } from "../../lib/types";
+import { SearchableSelect } from "../shared/SearchableSelect";
 import { User, Mail, IdCard, Phone, BookOpen, GraduationCap, CheckCircle, Save } from "lucide-react";
 
 const YEARS = ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year", "Postgraduate"];
@@ -120,10 +121,12 @@ export function Profile() {
         </Field>
 
         <Field label="Academic Programme" icon={BookOpen}>
-          <select value={form.academic_programme} onChange={set("academic_programme")} className={inputCls}>
-            <option value="">Select programme…</option>
-            {programmes.map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
+          <SearchableSelect
+            value={form.academic_programme}
+            onChange={v => setForm(f => ({ ...f, academic_programme: v }))}
+            options={programmes}
+            placeholder="Select programme…"
+          />
         </Field>
 
         <Field label="Year of Study" icon={GraduationCap}>

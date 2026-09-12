@@ -36,6 +36,14 @@ export interface AdminUser {
   name?: string;      // from profiles if the person has signed up
   registered: boolean;
   is_self?: boolean;
+  profile_id?: string;
+  position_id?: string | null;
+}
+
+export interface AdminPosition {
+  id: string;
+  label: string;
+  pages: string[];
 }
 
 export interface ForumReply {
@@ -160,7 +168,7 @@ export interface Payment {
   payment_method: "Mobile Money" | "Bank Transfer" | "Cash";
   reference_number: string;
   receipt_number: string;
-  status: "pending" | "confirmed" | "rejected";
+  status: "pending" | "confirmed" | "rejected" | "reset";
   receipt_sent: boolean;
   created_date: string;
 }

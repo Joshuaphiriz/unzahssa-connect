@@ -1,15 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../../lib/auth";
 import { Payments as PaymentsStore, StudentProfiles, Affiliations, AuditLogs } from "../../lib/data";
 import { useBranding } from "../shared/BrandingContext";
 import { downloadAffiliationReceipt } from "../../lib/receipt";
 import type { Payment, StudentProfile } from "../../lib/types";
-import { CreditCard, Download, Search, Check, X, RotateCcw } from "lucide-react";
+import { CreditCard, Download, Search, Check, X, RotateCcw, Trash2 } from "lucide-react";
 
 const STATUS_STYLES: Record<string, string> = {
   confirmed: "bg-green-100 text-green-700",
   pending: "bg-yellow-100 text-yellow-700",
   rejected: "bg-red-100 text-red-700",
+  reset: "bg-orange-100 text-orange-700",
 };
 
 function downloadCSV(filename: string, headers: string[], rows: string[][]) {
@@ -21,12 +22,15 @@ function downloadCSV(filename: string, headers: string[], rows: string[][]) {
 }
 
 export function Payments() {
-  const { user } = useAuth();
+  const { user, hasAdminPage } = useAuth();
+  const canDelete = hasAdminPage("users");
   const { branding } = useBranding();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [profiles, setProfiles] = useState<Record<string, StudentProfile>>({});
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [yearFilter, setYearFilter] = useState("");
+  const [deleteError, setDeleteError] = useState("");
 
   const load = () => {
     void Promise.all([PaymentsStore.list(), StudentProfiles.list()]).then(([pays, profs]) => {
@@ -67,14 +71,32 @@ export function Payments() {
     load();
   };
 
+  const removeTransaction = async (p: Payment) => {
+    if (!confirmDialog(`Permanently delete this transaction (${p.reference_number} — ${p.student_name}, ZMW ${p.amount})? This cannot be undone.`)) return;
+    setDeleteError("");
+    try {
+      await PaymentsStore.remove(p.id);
+      await audit("PAYMENT_DELETED", `Deleted transaction ${p.reference_number} for ${p.student_name} (ZMW ${p.amount}, ${p.year})`);
+      load();
+    } catch (err: any) {
+      setDeleteError(err?.message || "Failed to delete that transaction.");
+    }
+  };
+
   const fmt = (d: string) => new Date(d).toLocaleDateString("en-ZM", { day: "numeric", month: "short", year: "numeric" });
+
+  const years = useMemo(
+    () => Array.from(new Set(payments.map(p => p.year))).sort((a, b) => b - a),
+    [payments],
+  );
 
   const filtered = payments.filter(p => {
     const matchSearch = !search ||
       p.reference_number.toLowerCase().includes(search.toLowerCase()) ||
       p.student_name.toLowerCase().includes(search.toLowerCase());
     const matchStatus = !statusFilter || p.status === statusFilter;
-    return matchSearch && matchStatus;
+    const matchYear = !yearFilter || p.year === Number(yearFilter);
+    return matchSearch && matchStatus && matchYear;
   });
 
   const pending = payments.filter(p => p.status === "pending").length;
@@ -119,8 +141,16 @@ export function Payments() {
           <option value="pending">Pending</option>
           <option value="confirmed">Confirmed</option>
           <option value="rejected">Rejected</option>
+          <option value="reset">Reset</option>
+        </select>
+        <select value={yearFilter} onChange={e => setYearFilter(e.target.value)}
+          className="px-3 py-2 rounded-lg border border-border bg-input-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/50">
+          <option value="">All years</option>
+          {years.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
       </div>
+
+      {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
 
       {filtered.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
@@ -187,6 +217,12 @@ export function Payments() {
                                 </button>
                               )}
                             </>
+                          )}
+                          {canDelete && (
+                            <button onClick={() => removeTransaction(p)} title="Delete this transaction permanently"
+                              className="p-1.5 rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           )}
                         </div>
                       </td>
