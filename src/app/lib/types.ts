@@ -168,7 +168,7 @@ export interface Payment {
   payment_method: "Mobile Money" | "Bank Transfer" | "Cash";
   reference_number: string;
   receipt_number: string;
-  status: "pending" | "confirmed" | "rejected";
+  status: "pending" | "confirmed" | "rejected" | "reset";
   receipt_sent: boolean;
   created_date: string;
 }

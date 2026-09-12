@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useAuth } from "../../lib/auth";
 import { StudentProfiles, Payments, AcademicQueries, InternshipApplications } from "../../lib/data";
 import type { StudentProfile, Payment, AcademicQuery, InternshipApplication } from "../../lib/types";
 import {
@@ -33,6 +34,8 @@ function downloadCSV(filename: string, headers: string[], rows: string[][]) {
 }
 
 export function AdminDashboard() {
+  const { hasAdminPage } = useAuth();
+  const canSeeRevenue = hasAdminPage("payments");
   const [profiles, setProfiles] = useState<StudentProfile[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [queries, setQueries] = useState<AcademicQuery[]>([]);
@@ -130,7 +133,9 @@ export function AdminDashboard() {
         <StatCard icon={Briefcase} label="Placed" value={placed} color="bg-green-100 text-green-600" />
         <StatCard icon={Clock} label="Pending Review" value={pending} color="bg-yellow-100 text-yellow-600" />
         <StatCard icon={Award} label="Affiliated" value={affiliated} color="bg-purple-100 text-purple-600" />
-        <StatCard icon={DollarSign} label="Confirmed Revenue (ZMW)" value={confirmedRev.toLocaleString()} color="bg-emerald-100 text-emerald-600" />
+        {canSeeRevenue && (
+          <StatCard icon={DollarSign} label="Confirmed Revenue (ZMW)" value={confirmedRev.toLocaleString()} color="bg-emerald-100 text-emerald-600" />
+        )}
         <StatCard icon={CreditCard} label="Pending Payments" value={pendingPayments} color="bg-orange-100 text-orange-600" />
         <StatCard icon={HelpCircle} label="Academic Queries" value={queries.length} color="bg-sky-100 text-sky-600" />
         <StatCard icon={TrendingUp} label="Placement Rate" value={`${placementRate}%`} color="bg-rose-100 text-rose-600" />
@@ -235,7 +240,12 @@ export function AdminDashboard() {
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-sm font-medium text-foreground">ZMW {p.amount}</p>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${p.status === "confirmed" ? "bg-green-100 text-green-700" : p.status === "pending" ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}>{p.status}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                    p.status === "confirmed" ? "bg-green-100 text-green-700"
+                    : p.status === "pending" ? "bg-yellow-100 text-yellow-700"
+                    : p.status === "reset" ? "bg-orange-100 text-orange-700"
+                    : "bg-red-100 text-red-700"
+                  }`}>{p.status}</span>
                 </div>
               </div>
             ))}

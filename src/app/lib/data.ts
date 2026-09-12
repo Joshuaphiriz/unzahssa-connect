@@ -232,7 +232,22 @@ export const StudentProfiles = {
 // ── Affiliations (reset helpers) ───────────────────────────
 
 export const Affiliations = {
+  /** Reset one student's affiliation and void the payment that funded it, so
+   * it drops out of confirmed-revenue totals everywhere they're computed. */
   reset: async (profileId: string): Promise<void> => {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("affiliation_year")
+      .eq("id", profileId)
+      .maybeSingle();
+    if (profile?.affiliation_year != null) {
+      await supabase
+        .from("payments")
+        .update({ status: "reset" })
+        .eq("profile_id", profileId)
+        .eq("year", profile.affiliation_year)
+        .eq("status", "confirmed");
+    }
     const { error } = await supabase
       .from("profiles")
       .update({ affiliation: false, affiliation_year: null, affiliation_number: "" })
@@ -240,6 +255,25 @@ export const Affiliations = {
     if (error) throw error;
   },
   resetAll: async (): Promise<void> => {
+    const { data: affiliated } = await supabase
+      .from("profiles")
+      .select("id, affiliation_year")
+      .eq("role", "student")
+      .eq("affiliation", true);
+
+    const idsByYear = new Map<number, string[]>();
+    for (const p of affiliated ?? []) {
+      if (p.affiliation_year == null) continue;
+      const ids = idsByYear.get(p.affiliation_year) ?? [];
+      ids.push(p.id);
+      idsByYear.set(p.affiliation_year, ids);
+    }
+    await Promise.all(
+      [...idsByYear.entries()].map(([year, ids]) =>
+        supabase.from("payments").update({ status: "reset" }).eq("year", year).eq("status", "confirmed").in("profile_id", ids),
+      ),
+    );
+
     const { error } = await supabase
       .from("profiles")
       .update({ affiliation: false, affiliation_year: null, affiliation_number: "" })

@@ -10,6 +10,7 @@ const STATUS_STYLES: Record<string, string> = {
   confirmed: "bg-green-100 text-green-700",
   pending: "bg-yellow-100 text-yellow-700",
   rejected: "bg-red-100 text-red-700",
+  reset: "bg-orange-100 text-orange-700",
 };
 
 function downloadCSV(filename: string, headers: string[], rows: string[][]) {
@@ -126,6 +127,7 @@ export function Payments() {
           <option value="pending">Pending</option>
           <option value="confirmed">Confirmed</option>
           <option value="rejected">Rejected</option>
+          <option value="reset">Reset</option>
         </select>
         <select value={yearFilter} onChange={e => setYearFilter(e.target.value)}
           className="px-3 py-2 rounded-lg border border-border bg-input-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/50">
